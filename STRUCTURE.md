@@ -1,206 +1,355 @@
 # AverisOS Mintlify Documentation Structure
 
-This document describes the complete documentation structure created for AverisOS.
+This document describes the complete documentation structure created for AverisOS with hierarchical navigation.
+
+## Navigation Hierarchy
+
+The documentation is now organized into 7 main sections with proper hierarchy:
+
+```
+Home
+├── Getting Started
+│   ├── Overview
+│   └── Quick Start
+│
+├── Planning & Strategy (collapsible)
+│   ├── Roadmap
+│   ├── Business Model
+│   └── Go-to-Market
+│
+├── Architecture (collapsible)
+│   ├── Overview
+│   ├── Design Principles
+│   ├── Patterns
+│   └── Monorepo Structure
+│
+├── Domains
+│   └── Overview
+│
+├── Architecture Decisions / ADRs (collapsible)
+│   ├── ADR-001: Domain-Driven Design
+│   ├── ADR-002: Result Monad
+│   ├── ADR-003: Monorepo
+│   ├── ADR-004: REST API
+│   ├── ADR-005: dry-rb
+│   ├── ADR-006: Event Dispatcher
+│   ├── ADR-007: Phase 1 Focus
+│   ├── ADR-008: Open Source
+│   ├── ADR-009: Design Partners
+│   └── ADR-010: Self-Hosted
+│
+└── Development (collapsible)
+    ├── Setup
+    ├── Contributing
+    ├── Testing Strategy
+    └── Claude Guide
+```
 
 ## Directory Layout
 
 ```
 documentation/
-├── mint.json                          # Mintlify configuration
+├── docs.json                          # Mintlify configuration (hierarchical)
 ├── STRUCTURE.md                       # This file
 ├── index.mdx                          # Landing page
-├── overview.mdx                       # Product overview
-├── quick-start.mdx                    # 5-minute quickstart
 │
-├── planning/                          # Business & Strategy
+├── getting-started/                   # Getting Started Section
+│   ├── overview.mdx                   # Product overview
+│   └── quick-start.mdx                # 5-minute quickstart
+│
+├── planning/                          # Planning & Strategy Section
 │   ├── roadmap.mdx                    # 18-month product roadmap
 │   ├── business-model.mdx             # Pricing, revenue, go-to-market
 │   └── go-to-market.mdx               # Customer acquisition strategy
 │
-├── architecture/                      # Technical Architecture
+├── architecture/                      # Architecture Section
 │   ├── overview.mdx                   # Architecture layers & patterns
 │   ├── design-principles.mdx          # 10 core design principles
-│   ├── patterns.mdx                   # Common implementation patterns (5 patterns)
+│   ├── patterns.mdx                   # Common implementation patterns
 │   └── monorepo-structure.mdx         # How domains are organized
 │
-├── decisions/                         # Architecture Decision Records (ADRs)
-│   ├── adr-001-ddd.mdx                # Domain-Driven Design with Rails + dry-rb
-│   ├── adr-002-result-monad.mdx       # Result Monad Instead of Exceptions
-│   ├── adr-003-monorepo.mdx           # Monorepo for Domains (not separate repos)
-│   ├── adr-004-rest-api.mdx           # REST API (not GraphQL) for Phase 1
-│   ├── adr-005-dry-rb.mdx             # Dry-rb for validation, types, structs
-│   ├── adr-006-event-dispatcher.mdx   # Event Dispatcher for cross-domain communication
-│   ├── adr-007-phase-1-focus.mdx      # Phase 1 Focus on Traceability Over AI
-│   ├── adr-008-open-source.mdx        # Open-Source CLI and SDKs
-│   ├── adr-009-design-partners.mdx    # Design Partner Program Over Public Beta
-│   └── adr-010-self-hosted.mdx        # Self-Hosted in Phase 2, Not Phase 1
-│
-├── domains/                           # Domain-Specific Guides
+├── domains/                           # Domains Section
 │   └── overview.mdx                   # Overview of all domains
-│       (Individual domain guides: authentication.mdx, traceability.mdx, etc. coming soon)
 │
-└── development/                       # Development & Collaboration
-    ├── setup.mdx                      # Local development setup (5-min quickstart)
+├── decisions/                         # Architecture Decisions Section (ADRs)
+│   ├── adr-001-ddd.mdx
+│   ├── adr-002-result-monad.mdx
+│   ├── adr-003-monorepo.mdx
+│   ├── adr-004-rest-api.mdx
+│   ├── adr-005-dry-rb.mdx
+│   ├── adr-006-event-dispatcher.mdx
+│   ├── adr-007-phase-1-focus.mdx
+│   ├── adr-008-open-source.mdx
+│   ├── adr-009-design-partners.mdx
+│   └── adr-010-self-hosted.mdx
+│
+└── development/                       # Development Section
+    ├── setup.mdx                      # Local development setup
     ├── contributing.mdx               # Contribution guidelines
     ├── testing-strategy.mdx           # Testing pyramid & best practices
     └── claude-guide.mdx               # How to work with Claude AI
 ```
 
+## What Changed
+
+### Before (Flat Navigation)
+The old `docs.json` used a flat array of pages:
+```json
+{
+  "navigation": {
+    "pages": [
+      "index",
+      "getting-started/overview",
+      "getting-started/quick-start",
+      "planning/roadmap",
+      ...
+    ]
+  }
+}
+```
+
+This resulted in a long, unsorted list in the sidebar with no visual organization.
+
+### After (Hierarchical Navigation)
+The new structure uses grouped sections with collapsible groups:
+```json
+{
+  "navigation": [
+    {
+      "group": "Home",
+      "pages": ["index"]
+    },
+    {
+      "group": "Getting Started",
+      "pages": [
+        "getting-started/overview",
+        "getting-started/quick-start"
+      ]
+    },
+    {
+      "group": "Planning & Strategy",
+      "collapsible": true,
+      "pages": [...]
+    },
+    ...
+  ]
+}
+```
+
+This provides:
+- **Clear sections** - Users immediately see what documentation categories exist
+- **Collapsible groups** - Less important sections can be collapsed to reduce clutter
+- **Better navigation** - Users can quickly find what they're looking for
+- **Improved UX** - Follows Mintlify best practices
+
+## Section Descriptions
+
+### Home
+Single landing page that introduces AverisOS.
+
+### Getting Started
+Quick orientation for new users. Read in order:
+1. Overview — What is AverisOS?
+2. Quick Start — 5-minute setup guide
+
+**Audience:** First-time visitors, potential users
+
+### Planning & Strategy
+Business and product strategy documentation. Collapsible because it's primarily for stakeholders/leadership.
+
+- **Roadmap** — 18-month product plan with phases and deliverables
+- **Business Model** — Pricing tiers, revenue model, financial projections  
+- **Go-to-Market** — Customer acquisition, ICP, channels, marketing
+
+**Audience:** Stakeholders, leadership, potential partners
+
+### Architecture
+Technical architecture and design patterns. Core resource for engineers.
+
+- **Overview** — High-level architecture, layers, patterns
+- **Design Principles** — 10 core DDD principles with examples
+- **Patterns** — 5 common implementation patterns
+- **Monorepo Structure** — Directory organization and domain boundaries
+
+**Audience:** Engineers, architects, technical leads
+
+### Domains
+Information about business domains (traceability, authentication, etc.).
+
+- **Overview** — Description of all domains and their relationships
+
+**Audience:** Product team, engineers
+
+### Architecture Decisions (ADRs)
+Detailed architectural decision records. Collapsible because developers reference these as needed.
+
+Each ADR follows the standard format:
+- Context — Why this decision was needed
+- Decision — What was decided
+- Alternatives — Other options considered
+- Rationale — Why this choice was made
+- Consequences — What this means going forward
+
+**Audience:** Developers, architects, new team members
+
+### Development
+Practical guides for building and collaborating. Collapsible for secondary reference.
+
+- **Setup** — Local development environment configuration
+- **Contributing** — PR process, code style, contribution guidelines
+- **Testing Strategy** — Testing pyramid, RSpec patterns, best practices
+- **Claude Guide** — How to effectively work with Claude AI
+
+**Audience:** Developers, contributors
+
 ## File Count
 
-- **Total documentation files**: 21 files
+- **Total documentation files**: 25 files
 - **Architecture files**: 4 files
-- **ADRs (Architecture Decision Records)**: 10 files
+- **ADRs**: 10 files
 - **Development guides**: 4 files
 - **Planning guides**: 3 files
+- **Getting Started**: 2 files
+- **Domains**: 1 file
 - **Configuration files**: 1 file
-- **Support pages**: 3 files (overview, quick-start, structure)
-
-## Content by Section
-
-### 1. Planning & Strategy (3 files)
-- `planning/roadmap.mdx` — 18-month product roadmap with phases and deliverables
-- `planning/business-model.mdx` — Pricing tiers, revenue model, financial projections
-- `planning/go-to-market.mdx` — Customer acquisition, ICP, channels, marketing strategy
-
-### 2. Architecture (4 files)
-- `architecture/overview.mdx` — High-level architecture, layers, patterns, monorepo structure
-- `architecture/design-principles.mdx` — 10 core principles (business logic, thin models, DI, etc.)
-- `architecture/patterns.mdx` — 5 common patterns (simple validation, complex logic, composition, etc.)
-- `architecture/monorepo-structure.mdx` — Directory organization, domain boundaries, communication patterns
-
-### 3. Decisions (10 files)
-Complete ADR set covering:
-- Technical choices (DDD, Result monad, REST, dry-rb, event dispatcher)
-- Strategic choices (monorepo, MVP scope, AI strategy)
-- Operational choices (self-hosted strategy, open-source approach, validation via design partners)
-
-### 4. Development Guides (4 files)
-- `development/setup.mdx` — Local dev environment setup (5 min)
-- `development/contributing.mdx` — PR process, code style, testing requirements
-- `development/testing-strategy.mdx` — Testing pyramid (60% unit, 30% integration, 10% E2E)
-- `development/claude-guide.mdx` — How to effectively ask Claude for help
-
-### 5. Domain Documentation (1 file)
-- `domains/overview.mdx` — Overview of all domains, phase roadmap, anatomy of a domain
-
-### 6. Support & Navigation (3 files)
-- `index.mdx` — Landing page with card-based navigation
-- `overview.mdx` — Product overview (problem, solution, differentiators)
-- `quick-start.mdx` — 5-minute orientation guide
-- `STRUCTURE.md` — This file
-
-## Key Features
-
-### 1. Mintlify Integration
-- `mint.json` configuration with proper navigation structure
-- Color scheme: Teal (#0D9488) primary, with gray (#6B7280) secondary
-- Organized into logical sections with proper hierarchy
-- Responsive design for mobile and desktop
-
-### 2. Architecture Documentation
-- Complete DDD architecture guide with code examples
-- 10 design principles with before/after code patterns
-- 5 common implementation patterns with full examples
-- Clear separation of concerns (models, controllers, domain services)
-
-### 3. Decision Records
-- 10 ADRs covering all major architectural choices
-- Format: Context, Decision, Alternatives, Rationale, Consequences, References
-- Covers technical, strategic, and operational decisions
-- Full rationale and trade-offs for each decision
-
-### 4. Development Workflow
-- Clear setup instructions with troubleshooting
-- Contribution guidelines with PR template
-- Testing strategy with example tests
-- Claude AI collaboration guide with best practices
-
-### 5. Navigation
-- Organized by audience (stakeholders, engineers, developers)
-- Cross-references between related documents
-- Links to code, examples, and implementation details
-- Searchable through Mintlify
 
 ## How to Use This Documentation
 
+### For New Users
+1. **index.mdx** — Understand what AverisOS is
+2. **getting-started/overview.mdx** — Quick introduction
+3. **getting-started/quick-start.mdx** — Set up and run
+
 ### For Stakeholders
-1. Start with `overview.mdx` — Understand what AverisOS is
-2. Read `planning/roadmap.mdx` — See 18-month plan
-3. Review `planning/business-model.mdx` — Understand pricing and revenue
-4. Check `planning/go-to-market.mdx` — See customer acquisition strategy
+1. **planning/roadmap.mdx** — See 18-month plan
+2. **planning/business-model.mdx** — Understand pricing and revenue
+3. **planning/go-to-market.mdx** — Customer acquisition strategy
 
-### For Engineers
-1. Read `architecture/overview.mdx` — Understand the architecture
-2. Review `architecture/design-principles.mdx` — Learn the patterns
-3. Check `architecture/patterns.mdx` — See implementation examples
-4. Reference `architecture/monorepo-structure.mdx` — Understand code organization
-5. Review decisions in `decisions/` for rationale
+### For Engineers & Architects
+1. **architecture/overview.mdx** — Understand the system
+2. **architecture/design-principles.mdx** — Learn the patterns
+3. **architecture/patterns.mdx** — See implementation examples
+4. **architecture/monorepo-structure.mdx** — Understand code organization
+5. **decisions/** — Review architectural decisions for rationale
 
-### For Developers
-1. Follow `development/setup.mdx` — Get local environment working
-2. Read `development/contributing.mdx` — Learn contribution process
-3. Review `development/testing-strategy.mdx` — Understand testing approach
-4. Check `development/claude-guide.mdx` — Learn how to work with Claude
-5. Reference `domains/overview.mdx` — Understand domain structure
+### For Developers & Contributors
+1. **development/setup.mdx** — Get local environment working
+2. **development/contributing.mdx** — Learn contribution process
+3. **development/testing-strategy.mdx** — Understand testing approach
+4. **development/claude-guide.mdx** — Learn how to work with Claude
+5. **domains/overview.mdx** — Understand domain structure
 
-### For AI Collaboration
-1. Read `development/claude-guide.mdx` — How to ask for help
-2. Reference `architecture/design-principles.mdx` — Understand DDD
-3. Check `architecture/patterns.mdx` — See implementation patterns
-4. Review `decisions/` — Understand architectural choices
+## Configuration Details
 
-## Search Keywords
+### Collapsible Groups
+The following groups are set with `"collapsible": true`:
+- **Planning & Strategy** — Users typically access once or twice
+- **Architecture** — Detailed reference material
+- **Architecture Decisions (ADRs)** — Reference material for specific decisions
+- **Development** — Secondary reference for developers
 
-When searching Mintlify documentation:
-- **Architecture**: DDD, domain-driven, bounded context, dependency injection
-- **Patterns**: command, request, verify, validate, operation, monad
-- **Testing**: unit tests, integration tests, E2E tests, RSpec
-- **Domains**: authentication, traceability, git integration, testing, email
-- **Decisions**: ADR, architectural decision, monorepo, REST, GraphQL
+Non-collapsible groups:
+- **Home** — Always visible
+- **Getting Started** — Primary navigation
+- **Domains** — Important for understanding the system
+
+### Colors
+- **Primary**: #0D9488 (teal)
+- **Light**: #14B8A6 (light teal)
+- **Dark**: #0F766E (dark teal)
+
+### Theme
+- **Theme**: mint
+- **Logo**: Dark and light variants
+- **Favicon**: AverisOS icon
+
+## Navigation Flow
+
+The documentation is designed to flow naturally:
+
+1. **Landing** → index.mdx (what is this?)
+2. **Getting Started** → overview + quick-start (how do I use it?)
+3. **For Business** → planning/* (business and strategy)
+4. **For Technical** → architecture/* (how does it work?)
+5. **For Developers** → development/* (how do I contribute?)
+6. **For Deep Dives** → decisions/* (why these choices?)
 
 ## Maintenance
 
-### Keeping Documentation Updated
+### When to Update
 
-1. **When code changes**: Update relevant architecture docs
-2. **When decisions are made**: Create new ADR in `decisions/`
-3. **When new patterns emerge**: Add to `architecture/patterns.mdx`
-4. **When design principles change**: Update `architecture/design-principles.mdx`
-5. **When setup changes**: Update `development/setup.mdx`
+1. **Code changes** → Update relevant architecture docs
+2. **New decisions** → Create new ADR in `decisions/`
+3. **New patterns** → Add to `architecture/patterns.mdx`
+4. **Setup changes** → Update `development/setup.mdx`
+5. **Roadmap changes** → Update `planning/roadmap.mdx`
 
-### Version Control
+### Git Workflow
 
-- Documentation is in `AverisOS/documentation/` directory
-- Track all changes in git with clear commit messages:
-  ```bash
-  git commit -m "docs: add ADR-011 on [topic]"
-  git commit -m "docs: update setup guide for new Ruby version"
-  ```
+```bash
+# Create a branch for documentation changes
+git checkout -b docs/update-setup-guide
 
-## Integration with Main Repository
+# Make changes
+# Commit with clear message
+git commit -m "docs: update setup guide for new Ruby version"
 
-This documentation should be:
-1. In a separate `documentation/` directory in the main project
-2. Built and deployed to Mintlify (via mint CLI or GitHub actions)
-3. Linked from main README.md
-4. Referenced in CONTRIBUTING.md
-5. Updated during pull review (if docs need updating)
+# Push and create PR
+git push origin docs/update-setup-guide
+```
 
-## Next Steps
+### Commit Message Conventions
 
-1. **Copy to repository**: `cp -r documentation/ /path/to/AverisOS/documentation/`
-2. **Install Mintlify**: `npm install -g mintlify`
-3. **Preview locally**: `mintlify dev`
-4. **Deploy**: Follow Mintlify deployment guide
-5. **Share URL**: With team so everyone can access
+```
+docs: brief description
+
+- More detailed explanation
+- Additional context if needed
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+```
+
+## Deployment
+
+### Local Preview
+```bash
+npm install -g mintlify
+cd documentation
+mintlify dev
+```
+
+### Deploy to Production
+Follow Mintlify's deployment guide at https://mintlify.com/docs/deployment/overview
+
+### Preview URL
+Once deployed, the documentation will be available at your Mintlify URL (e.g., `docs.averis-os.io`).
+
+## Search Keywords
+
+When searching documentation:
+- **Architecture**: DDD, domain-driven, bounded context, dependency injection
+- **Patterns**: command, request, verify, validate, operation, monad
+- **Testing**: unit tests, integration tests, E2E tests, RSpec
+- **Domains**: authentication, traceability, git integration
+- **Decisions**: ADR, architectural decision, monorepo, REST
+- **Setup**: Ruby, Rails, development environment
 
 ## Statistics
 
-- **Total words**: ~40,000+ (not counting code examples)
+- **Total words**: ~40,000+
 - **Code examples**: 100+
 - **Architecture diagrams**: 5+
 - **Tables**: 20+
-- **Links**: 150+
+- **Cross-references**: 150+
+- **Navigation groups**: 7
+- **Collapsible sections**: 4
 
-This documentation provides a comprehensive foundation for understanding, building, and collaborating on AverisOS.
+## Next Steps
+
+1. **Test locally**: `mintlify dev` and navigate through all sections
+2. **Verify links**: Check that internal cross-references work
+3. **Deploy**: Push to production via Mintlify
+4. **Share**: Send documentation URL to team
+5. **Gather feedback**: Ask users if navigation is intuitive
+
+This hierarchical structure provides a much better user experience and makes the documentation more discoverable and easier to navigate.
