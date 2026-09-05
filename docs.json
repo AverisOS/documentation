@@ -94,6 +94,70 @@
           "development/claude-guide"
         ]
       }
+    ],
+    "groups": [
+      {
+        "group": "Home",
+        "pages": [
+          "index"
+        ]
+      },
+      {
+        "group": "Getting Started",
+        "pages": [
+          "getting-started/overview",
+          "getting-started/quick-start"
+        ]
+      },
+      {
+        "group": "Planning & Strategy",
+        "pages": [
+          "planning/prd",
+          "planning/roadmap",
+          "planning/business-model",
+          "planning/work-management",
+          "planning/go-to-market"
+        ]
+      },
+      {
+        "group": "Architecture",
+        "pages": [
+          "architecture/overview",
+          "architecture/design-principles",
+          "architecture/patterns",
+          "architecture/monorepo-structure"
+        ]
+      },
+      {
+        "group": "Domains",
+        "pages": [
+          "domains/overview"
+        ]
+      },
+      {
+        "group": "Architecture Decisions (ADRs)",
+        "pages": [
+          "decisions/adr-001-ddd",
+          "decisions/adr-002-result-monad",
+          "decisions/adr-003-monorepo",
+          "decisions/adr-004-rest-api",
+          "decisions/adr-005-dry-rb",
+          "decisions/adr-006-event-dispatcher",
+          "decisions/adr-007-phase-1-focus",
+          "decisions/adr-008-open-source",
+          "decisions/adr-009-design-partners",
+          "decisions/adr-010-self-hosted"
+        ]
+      },
+      {
+        "group": "Development",
+        "pages": [
+          "development/setup",
+          "development/contributing",
+          "development/testing-strategy",
+          "development/claude-guide"
+        ]
+      }
     ]
   },
   "footerSocials": {
