@@ -1,484 +1,148 @@
----
-title: "Architecture Overview"
-description: "Technical architecture of AverisOS"
----
-
 # Architecture Overview
 
-AverisOS is built using **Domain-Driven Design** with Rails 7+, dry-rb, and PostgreSQL. This guide covers the technical foundation and key architectural decisions.
+AverisOS is built on domain-driven design (DDD) principles with three bounded contexts communicating via events. The system separates **Rails API** (JSON-only, stateless) from frontend (Vite + React SPA), deployed independently with zero-downtime strategies.
 
 ## High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    API Layer                        │
-│  (Rails Controllers - HTTP Routing & Serialization) │
-└──────────────────┬──────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│              Domain Services Layer                  │
-│  (Business Logic, Orchestration, Event Dispatch)   │
-│                                                     │
-│  ├── Traceability (core)                           │
-│  ├── Authentication                                │
-│  ├── Git Integration                               │
-│  ├── Testing                                        │
-│  ├── Email                                          │
-│  └── ... (future domains)                          │
-└──────────────────┬──────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│          Operations Layer (RVVC Pattern)           │
-│                                                    │
-│  Request → Verify → Validate → Command            │
-│  (Input)  (Format) (Semantic) (Execute)           │
-└──────────────────┬──────────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────────┐
-│            Persistence Layer                        │
-│  (Repositories, Models, Database)                  │
-│                                                    │
-│  ├── Artifacts                                    │
-│  ├── Relationships                                │
-│  ├── Users                                        │
-│  └── ... (domain models)                          │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (React + Vite)                   │
+│              Deployed: CDN (Vercel/Netlify)                  │
+│                  - Static SPA bundle                         │
+│                  - Centralized API client                    │
+│                  - shadcn/ui components                      │
+└────────────────────────┬────────────────────────────────────┘
+                         │ HTTPS/REST
+┌────────────────────────▼────────────────────────────────────┐
+│              Rails API (Stateless, JSON-only)                │
+│          Deployed: App Platform (Heroku/Railway)             │
+│                                                               │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌────────────┐ │
+│  │  Authentication  │  │  Traceability    │  │ Git Integ. │ │
+│  │  Bounded Context │  │  Bounded Context │  │  BC        │ │
+│  └──────────────────┘  └──────────────────┘  └────────────┘ │
+│         │                      │                    │        │
+│         └──────────┬───────────┴────────────────────┘        │
+│                    │                                         │
+│            Event Bus (Async Events)                          │
+│                    │                                         │
+│  ┌────────────────────────────────────────────┐             │
+│  │    Sidekiq (Background Job Processing)     │             │
+│  │    - Cross-domain event handling           │             │
+│  │    - Async notifications                   │             │
+│  └────────────────────────────────────────────┘             │
+└─────────────────────────────────────────────────────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+   ┌────▼────┐      ┌────▼────┐    ┌─────▼────┐
+   │PostgreSQL│      │  Redis  │    │   Git    │
+   │ Database │      │  Cache  │    │Repositories
+   └──────────┘      └─────────┘    └──────────┘
 ```
 
-## Layered Architecture
+## Rails API Mode
 
-### 1. API Layer (Controllers)
+AverisOS backend runs exclusively in **Rails API mode**:
 
-**Responsibility**: HTTP routing and serialization only
+- **No HTML views or templates** — only JSON responses via serializers
+- **No asset pipeline** — CSS/JS managed by React frontend
+- **Stateless operations** — each request is independent; no server-side sessions
+- **Token-based authentication** — Bearer tokens in Authorization header
+- **CORS-enabled** — frontend on different domain communicates via HTTPS/REST
+- **Lightweight middleware** — only what's needed for JSON APIs
+
+Initialize with `rails new --api`:
+```bash
+rails new averis-os --api --database=postgresql
+```
+
+All API responses are JSON (never HTML):
 
 ```ruby
-class ArtifactsController < ApplicationController
+# Controller example
+class Api::V1::UsersController < Api::BaseController
   def create
-    # Step 1: Parse HTTP request
-    request = CreateArtifact::Request.new(
-      project_id: params[:project_id],
-      type: params[:type],
-      title: params[:title],
-      description: params[:description],
-      owner_id: current_user.id
-    )
-    
-    # Step 2: Call domain service (business logic happens here)
-    result = Container['domains.traceability'].create_artifact(request)
-    
-    # Step 3: Serialize response
-    if result.success?
-      render json: ArtifactSerializer.new(result.data[:artifact]), status: :created
-    else
-      render json: { errors: result.error }, status: :unprocessable_entity
-    end
+    render json: UserSerializer.new(user)  # JSON only
   end
 end
 ```
 
-**Guidelines**:
-- ✓ Parse HTTP request
-- ✓ Call domain service
-- ✓ Serialize response
-- ❌ No business logic
-- ❌ No database queries
-- ❌ No validation
+## Bounded Contexts
 
-### 2. Domain Services Layer
+### Authentication Domain
+Handles user registration, login, session management, and password reset. Produces events like `UserRegistered`, `SessionStarted`, `PasswordReset`.
 
-**Responsibility**: Business logic, orchestration, event dispatch
+### Traceability Domain
+Core domain managing artifacts (specs, code, tests, docs) and relationships between them. Provides impact analysis and dependency graph queries. Produces events like `ArtifactCreated`, `RelationshipEstablished`.
 
+### Git Integration Domain
+Connects to Git repositories, syncs commits, and links them to artifacts. Produces events like `RepositoryConnected`, `CommitsSync'd`.
+
+## Design Patterns
+
+### Domain-Driven Design (DDD)
+- **Bounded Contexts**: Each domain has clear boundaries and responsibilities
+- **Aggregates**: Aggregate roots (User, Artifact, Repository) manage consistency
+- **Events**: Loose coupling via domain events, not direct imports
+- **Repositories**: Abstract persistence per domain
+- **Value Objects**: Immutable, reusable objects (UserId, ArtifactId)
+
+### RVVC Pattern (Selective)
+Applied when operation complexity warrants (2+ criteria):
+1. **Request**: Parse/validate input
+2. **Verify**: Check preconditions (user exists, no duplicates)
+3. **Validate**: Apply business rules
+4. **Command**: Perform persistence
+
+Example: `RegisterUser` uses all 4 layers. Simple `GetArtifact` uses only Command.
+
+### Result Monad
+All operations return `Result<T, Error>` (success or typed failure):
 ```ruby
-module Traceability
-  class TraceabilityService
-    def initialize(container:)
-      @container = container
-    end
-    
-    def create_artifact(request)
-      # Orchestrate Request → Verify → Validate → Command
-      result = CreateArtifact::Verify.call(request)
-      return result if result.failure?
-      
-      result = CreateArtifact::Validate.new(repositories).call(request)
-      return result if result.failure?
-      
-      result = CreateArtifact::Command.new(repositories, @container['services.event_dispatcher']).call(request, result.data)
-      result
-    end
-  end
-end
+result = register_user(params)
+result.on_success { |user| render json: user }
+result.on_failure { |error| render json: error, status: :unprocessable_entity }
 ```
 
-**Guidelines**:
-- ✓ Orchestrate operations
-- ✓ Emit domain events
-- ✓ Manage transactions
-- ✓ Handle cross-domain communication
-- ❌ No HTTP concerns
-- ❌ No low-level validation
+### Dependency Injection
+Container manages all dependencies. Services receive what they need—no hidden globals or singletons.
 
-### 3. Operations Layer (RVVC Pattern)
+### Event-Driven Communication
+Domains communicate via events published to an event bus, consumed asynchronously by Sidekiq. This enables loose coupling and async processing.
 
-**Responsibility**: Structured request processing through four phases
+## Deployment Strategy
 
-Each operation has four classes:
+### Zero-Downtime Deployments
+- **Frontend**: CDN serves new version instantly with asset versioning
+- **Backend (Rails API)**: Blue-green deployment strategy—new version runs alongside old, traffic switches gradually
+- **Database**: Backward-compatible migrations deployed before code changes
 
-**Request** (Input definition)
-```ruby
-class CreateArtifact::Request
-  attr_reader :project_id, :type, :title, :description, :owner_id
-  
-  def initialize(project_id:, type:, title:, description: nil, owner_id:)
-    @project_id = project_id
-    @type = type
-    @title = title
-    @description = description
-    @owner_id = owner_id
-  end
-end
-```
+### Environments
+- **Development**: Local Rails API + React dev server
+- **Staging**: Full production setup for validation
+- **Production**: Live user environment with backups and monitoring
 
-**Verify** (Format validation - no database)
-```ruby
-class CreateArtifact::Verify
-  VALID_TYPES = %w[requirement feature code test release].freeze
-  
-  def self.call(request)
-    errors = []
-    errors << "project_id required" if request.project_id.blank?
-    errors << "type required" if request.type.blank?
-    errors << "type must be one of: #{VALID_TYPES.join(', ')}" unless VALID_TYPES.include?(request.type)
-    errors << "title required" if request.title.blank?
-    errors << "title max 500 chars" if request.title.to_s.length > 500
-    
-    return Shared::Result.failure(errors.join("; ")) if errors.any?
-    Shared::Result.success(request)
-  end
-end
-```
+## Technology Stack
 
-**Validate** (Semantic validation - with database)
-```ruby
-class CreateArtifact::Validate
-  def initialize(repositories)
-    @repositories = repositories
-  end
-  
-  def call(request)
-    # Check business rules
-    project = @repositories[:project].find(request.project_id)
-    return Shared::Result.failure("Project not found") unless project
-    
-    owner = @repositories[:user].find(request.owner_id)
-    return Shared::Result.failure("Owner not found") unless owner
-    
-    # Prefetch data for Command phase
-    data = {
-      project: project,
-      owner: owner
-    }
-    
-    Shared::Result.success(request, data: data)
-  end
-end
-```
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| Frontend | React 18 + Vite | Fast SPA build/dev |
+| UI Framework | shadcn/ui + Tailwind | Customizable components |
+| Backend | Rails 8.0.x (API mode) | JSON API and domain logic |
+| Language | Ruby 3.3.x | Productive, readable |
+| Database | PostgreSQL 15+ | Reliable RDBMS |
+| Cache | Redis 7+ | Session, cache, job queue |
+| Job Queue | Sidekiq | Async processing |
+| Testing | Playwright, RSpec, Capybara | E2E, unit, integration |
+| Deployment | GitHub Actions, Heroku/Railway | CI/CD automation |
+| Monitoring | Sentry, OpenTelemetry, Prometheus | Errors, traces, metrics |
 
-**Command** (Execution - side effects)
-```ruby
-class CreateArtifact::Command
-  def initialize(repositories, event_dispatcher)
-    @repositories = repositories
-    @event_dispatcher = event_dispatcher
-  end
-  
-  def call(request, prefetched_data)
-    # Create artifact
-    artifact = @repositories[:artifact].create(
-      project_id: request.project_id,
-      type: request.type,
-      title: request.title,
-      description: request.description,
-      owner_id: request.owner_id,
-      status: 'draft'
-    )
-    
-    # Emit event for other domains to subscribe to
-    @event_dispatcher.dispatch(
-      ArtifactCreated.new(artifact_id: artifact.id, project_id: artifact.project_id)
-    )
-    
-    Shared::Result.success({ artifact: artifact })
-  end
-end
-```
+## Key Principles
 
-### 4. Persistence Layer (Models & Repositories)
-
-**Models** (Thin - associations and validations only)
-```ruby
-class Artifact < ApplicationRecord
-  belongs_to :project
-  belongs_to :owner, class_name: 'User'
-  has_many :relationships_as_source, class_name: 'ArtifactRelationship', foreign_key: :source_id
-  has_many :relationships_as_target, class_name: 'ArtifactRelationship', foreign_key: :target_id
-  
-  validates :type, inclusion: { in: %w[requirement feature code test release] }
-  validates :title, presence: true, length: { maximum: 500 }
-end
-```
-
-**Repositories** (Data access abstraction)
-```ruby
-class ArtifactRepository
-  def create(attributes)
-    Artifact.create!(attributes)
-  end
-  
-  def find(id)
-    Artifact.find_by(id: id)
-  end
-  
-  def find_related(artifact_id, relationship_type)
-    # Find all artifacts connected to this one
-    Artifact
-      .joins(:relationships_as_source)
-      .where(artifact_relationships: { source_id: artifact_id, type: relationship_type })
-  end
-end
-```
-
-## Key Patterns
-
-### 1. Result Monad
-
-All operations return `Success` or `Failure`, never raise exceptions for expected errors:
-
-```ruby
-class CreateArtifact::Verify
-  def self.call(request)
-    # Success case
-    Shared::Result.success(request)
-    
-    # Failure case
-    Shared::Result.failure("title required")
-  end
-end
-
-# Usage
-result = CreateArtifact::Verify.call(request)
-if result.success?
-  puts "Created: #{result.data}"
-else
-  puts "Error: #{result.error}"
-end
-
-# Composition
-result = CreateArtifact::Verify.call(request)
-  .and_then { |req| CreateArtifact::Validate.call(req) }
-  .and_then { |req| CreateArtifact::Command.call(req) }
-```
-
-### 2. Dependency Injection
-
-All dependencies injected via dry-container, never hardcoded:
-
-```ruby
-# In config/initializers/container.rb
-Container.register('domains.traceability') do
-  Traceability::TraceabilityService.new(container: Container)
-end
-
-Container.register('repositories.artifact') do
-  ArtifactRepository.new
-end
-
-# In controllers
-service = Container['domains.traceability']
-service.create_artifact(request)
-```
-
-### 3. Event-Driven Communication
-
-Domains emit events, other domains subscribe:
-
-```ruby
-# Traceability domain emits event
-@event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
-
-# Email domain subscribes
-# In config/initializers/event_subscriptions.rb
-event_dispatcher.subscribe(Traceability::ArtifactCreated) do |event|
-  # Send notification
-  Email::SendArtifactCreatedNotification.call(event.artifact_id)
-end
-```
-
-## Monorepo Structure
-
-```
-AverisOS/
-├── app/
-│   ├── controllers/          # API layer
-│   ├── models/               # Thin models
-│   └── serializers/          # JSON serialization
-├── domains/
-│   ├── shared/               # Shared utilities
-│   │   ├── result_monad.rb
-│   │   ├── event.rb
-│   │   └── repository.rb
-│   ├── authentication/       # Authentication domain
-│   │   ├── domain/
-│   │   │   ├── authentication_service.rb
-│   │   │   ├── register_user/
-│   │   │   ├── login/
-│   │   │   └── events/
-│   │   └── spec/
-│   ├── traceability/         # Traceability domain (core)
-│   │   ├── domain/
-│   │   │   ├── traceability_service.rb
-│   │   │   ├── create_artifact/
-│   │   │   ├── link_artifacts/
-│   │   │   ├── analyze_impact/
-│   │   │   └── events/
-│   │   └── spec/
-│   ├── git_integration/      # Git domain
-│   ├── testing/              # Testing domain
-│   └── email/                # Email domain
-├── config/
-│   ├── initializers/
-│   │   ├── container.rb      # Dependency injection
-│   │   └── event_subscriptions.rb  # Event listeners
-│   └── database.yml
-└── spec/
-    ├── integration/
-    └── e2e/
-```
-
-## Communication Between Layers
-
-### Request Flow
-
-```
-HTTP Request
-  ↓
-[Controller]
-  ├─ Parse request params
-  ├─ Create Request object
-  └─ Call domain service
-      ↓
-    [Domain Service]
-      ├─ Orchestrate Verify
-      ├─ Orchestrate Validate
-      ├─ Orchestrate Command
-      └─ Emit events
-          ↓
-        [Verify] No database
-        [Validate] Database queries
-        [Command] Database writes + events
-              ↓
-            [Event Dispatcher]
-              ├─ Email subscribes
-              ├─ Git subscribes
-              └─ Testing subscribes
-  ↓
-[Serializer]
-  ├─ Format response
-  └─ Return JSON
-      ↓
-HTTP Response
-```
-
-### Domain Communication (Loose Coupling)
-
-```
-❌ WRONG: Direct dependency
-Traceability::CreateArtifact::Command
-  └─ Email::SendNotification.call()  # Tight coupling
-
-✓ RIGHT: Event-driven
-Traceability::CreateArtifact::Command
-  └─ @event_dispatcher.dispatch(ArtifactCreated)
-      ↓
-    [Event Subscribers]
-      └─ Email::SendArtifactCreatedNotification.call()
-```
-
-## Database Schema
-
-Core entities:
-
-```sql
--- Artifacts (requirements, features, code, tests, releases)
-CREATE TABLE artifacts (
-  id BIGINT PRIMARY KEY,
-  project_id BIGINT NOT NULL,
-  type VARCHAR(50),  -- 'requirement', 'feature', 'code', 'test', 'release'
-  title VARCHAR(500),
-  description TEXT,
-  owner_id BIGINT,
-  status VARCHAR(50),  -- 'draft', 'active', 'complete', 'archived'
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-);
-
--- Relationships between artifacts
-CREATE TABLE artifact_relationships (
-  id BIGINT PRIMARY KEY,
-  source_id BIGINT NOT NULL,      -- "from" artifact
-  target_id BIGINT NOT NULL,      -- "to" artifact
-  type VARCHAR(50),               -- 'implements', 'validates', 'depends_on', etc.
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-);
-
--- Users
-CREATE TABLE users (
-  id BIGINT PRIMARY KEY,
-  email VARCHAR(255),
-  encrypted_password VARCHAR(255),
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-);
-
--- Projects
-CREATE TABLE projects (
-  id BIGINT PRIMARY KEY,
-  name VARCHAR(255),
-  owner_id BIGINT,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP
-);
-```
-
-## Key Architectural Principles
-
-1. **Business Logic First**: Domain services contain all business logic, never in models
-2. **Clear Phases**: Every operation goes through Verify → Validate → Command for clarity
-3. **Explicit Errors**: Result monad makes error paths visible and testable
-4. **Loose Coupling**: Event-driven communication between domains, not direct calls
-5. **Dependency Injection**: All dependencies injected, never hardcoded
-6. **Thin Models**: Models do associations and validations only
-7. **Repository Pattern**: Data access abstracted from business logic
-
-## Scaling Considerations
-
-### Phase 1-2: Monorepo
-All domains in one Rails app. Fast development, shared code, easy cross-domain changes.
-
-### Phase 3+: Microservices
-Extract high-traffic domains to separate services:
-- Traceability service (high read volume)
-- Git integration service (webhook processing)
-- Email service (async, high volume)
-- Keep auth service co-located
-
-See [Monorepo Structure](/architecture/monorepo-structure) for details on extraction.
-
----
-
-## Next Steps
-
-- [Design Principles](/architecture/design-principles) - 10 core DDD principles with examples
-- [Patterns & Examples](/architecture/patterns) - Implementation patterns with full code
-- [Monorepo Structure](/architecture/monorepo-structure) - Directory layout and organization
+1. **Clear Separation of Concerns**: Each domain owns its data and logic
+2. **API-First Design**: Rails API responses are JSON, never HTML
+3. **Testability**: Units testable in isolation; integration tests validate flows
+4. **Observability**: Structured logging, distributed tracing, error tracking
+5. **Scalability**: Stateless backend; microservice extraction path built in
+6. **Developer Experience**: Local development mirrors production; fast feedback loops
