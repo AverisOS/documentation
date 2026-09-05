@@ -1,0 +1,292 @@
+---
+title: "Work Management Model"
+description: "Team-centric work assignment and ownership model"
+---
+
+# Work Management Model
+
+## Overview
+
+Work flows from Project ownership through Team assignment to Individual execution. This model supports n:m team-to-domain relationships while maintaining clear accountability.
+
+---
+
+## Core Entities
+
+### Projects
+- **Owned by**: Individual user (project owner)
+- **Status**: draft, ready_for_work
+- **Teams**: Explicit set of teams who can contribute
+- **Backlog**: Visible to project owner + assigned teams
+
+### Teams
+- **Membership**: Explicit (users with roles)
+- **Domain Access**: Permissions per domain (read/write/admin)
+- **Backlogs**:
+  - Project backlog: Items from assigned projects
+  - Team backlog: Items claimed by the team
+  - Sprint backlog: Items committed for a sprint
+
+### Artifacts (Work Items)
+- **Assignment chain**: Project → Team → Individual
+- **States**: unassigned → team_backlog → sprint → in_progress → completed
+- **Ownership**: Team that will deliver it (final responsibility)
+
+---
+
+## Work Assignment Flow
+
+### 1. Project Initialization
+
+```
+Individual (Project Owner)
+  ├─ Creates project
+  ├─ Marks as "ready_for_work"
+  └─ Adds teams who can contribute (project_teams)
+```
+
+### 2. Item to Team Backlog
+
+**Two paths:**
+
+#### A. Team Self-Assignment (Pull Model)
+- Team sees project backlog item
+- Team drags/assigns to own backlog
+- Status: team_claimed
+
+#### B. Project Owner Flags (Push Model)
+- Project owner flags item for team
+- Creates flagged_item record
+- Team receives notification
+- Team can:
+  - Accept → moves to backlog (status: team_accepted)
+  - Reassign → sends to different team
+  - Conflict → escalates to triage pool
+
+### 3. Assignment Resolution
+
+**Normal Case:**
+```
+flagged_item → team_accepted → team_backlog
+```
+
+**Conflict Case:**
+```
+multiple teams flagged
+  → triage_pool (leadership reviews)
+  → assigned_by_management (marked for tracking)
+  → team_backlog
+```
+
+**Tracking:**
+- `assignment_source`: "team_self" | "owner_flagged" | "management_assigned"
+- Metric: ratio of management_assigned vs team_accepted (org health signal)
+
+### 4. Sprint Assignment
+
+**Requirement:** All sprint items must have team ownership
+```
+artifact_state = team_backlog
+  → team commits to sprint
+  → sprint_item created with (team_id, artifact_id)
+  → ready for individual assignment
+```
+
+### 5. Individual Assignment
+
+**Separate from team ownership:**
+```
+artifact → team (who delivers)
+artifact → individual (who does the work)
+```
+
+Individual assignment can be:
+- Direct: user assigned to artifact
+- Inferred: git commits, PR authorship
+- Updated: during execution
+
+---
+
+## Ownership & Accountability
+
+### Team Ownership
+- **Responsible for**: Completing artifact, meeting acceptance criteria, quality
+- **Visible in**: Team backlog, sprint, traceability
+- **Metric**: Team velocity, completion rate, defect escape
+
+### Individual Ownership
+- **Responsible for**: Day-to-day progress, technical decisions, code quality
+- **Visible in**: Work logs, git history, PR reviews
+- **Metric**: Productivity, code review participation
+
+### Project Owner Responsibility
+- **Responsible for**: Project backlog, prioritization, team coordination
+- **Visible in**: Project health, scope management
+- **Metric**: Project on-time delivery, scope changes
+
+---
+
+## Permissions & Access
+
+### Project-Level
+```
+owner: full control
+assigned_teams: view project_backlog, claim items, flag items
+
+Non-assigned teams: no access (unless domain permissions override)
+```
+
+### Team-Level
+```
+role + domain_access determines:
+  - who can view team backlog
+  - who can commit to sprint
+  - who can reassign flagged items
+```
+
+### Artifact-Level
+```
+team_backlog ownership determines:
+  - who can see artifact details
+  - who can update status
+  - who can assign individual
+```
+
+---
+
+## Data Model
+
+### Core Tables
+
+```sql
+projects(
+  id,
+  owner_user_id,
+  name,
+  status,  -- draft | ready_for_work
+  created_at,
+  updated_at
+)
+
+project_teams(
+  project_id,
+  team_id,
+  access_level  -- view | contribute | admin
+)
+
+artifacts(
+  id,
+  project_id,
+  title,
+  description,
+  status  -- unassigned | team_backlog | sprint | in_progress | completed
+)
+
+artifact_team_assignments(
+  artifact_id,
+  team_id,
+  source,  -- team_self | owner_flagged | management_assigned
+  assigned_at,
+  accepted_at  -- null if management_assigned
+)
+
+artifact_user_assignments(
+  artifact_id,
+  user_id,
+  role,  -- assignee | reviewer | owner
+  assigned_at
+)
+
+flagged_items(
+  artifact_id,
+  from_team_id,
+  to_team_id,
+  status,  -- pending | accepted | reassigned | triaged
+  created_at
+)
+
+triage_pool(
+  artifact_id,
+  conflicting_teams,  -- json array
+  assigned_by,  -- user_id
+  resolved_team_id,
+  resolved_at
+)
+
+ssprints(
+  id,
+  team_id,
+  name,
+  start_date,
+  end_date
+)
+
+sprint_items(
+  sprint_id,
+  artifact_id,
+  committed_at
+)
+```
+
+---
+
+## Queries & Workflows
+
+### Team Backlog
+
+```sql
+SELECT a.*
+FROM artifacts a
+JOIN artifact_team_assignments ata ON a.id = ata.artifact_id
+WHERE ata.team_id = ?
+AND a.status IN ('team_backlog', 'sprint', 'in_progress')
+AND a.project_id IN (
+  SELECT project_id FROM project_teams WHERE team_id = ?
+)
+ORDER BY priority
+```
+
+### Assignment Health Metrics
+
+```sql
+-- Ratio of team-accepted vs management-assigned
+SELECT
+  COUNT(CASE WHEN source = 'team_self' THEN 1 END) as team_self,
+  COUNT(CASE WHEN source = 'owner_flagged' AND accepted_at IS NOT NULL THEN 1 END) as owner_accepted,
+  COUNT(CASE WHEN source = 'management_assigned' THEN 1 END) as management_assigned
+FROM artifact_team_assignments
+WHERE assigned_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+```
+
+### Triage Items Needing Resolution
+
+```sql
+SELECT tf.artifact_id, tf.conflicting_teams, a.title
+FROM triage_pool tf
+JOIN artifacts a ON tf.artifact_id = a.id
+WHERE tf.resolved_at IS NULL
+ORDER BY tf.created_at
+```
+
+---
+
+## Key Design Decisions
+
+1. **Explicit Team Ownership**: All artifacts must be claimed by a team before sprint assignment. This maintains accountability and enables team-level metrics.
+
+2. **Dual Assignment Path**: Both team self-assignment (pull) and project owner assignment (push) are valid. Tracking the source reveals organizational patterns.
+
+3. **Management Override with Visibility**: Project owners can force-assign (needed when teams deadlock), but it's marked and tracked. This enables leadership intervention while measuring when it's needed.
+
+4. **Separate Individual Assignment**: Individual ownership is distinct from team ownership. Supports accurate work tracking, code attribution, and individual contribution metrics.
+
+5. **Triage Pool**: When multiple teams claim an item and can't resolve it, it escalates to a formal review process. Prevents deadlock while maintaining team autonomy.
+
+---
+
+## Future Enhancements
+
+- **SLA Tracking**: Time to assignment, time in triage
+- **Capacity Planning**: Team velocity affects assignment suggestions
+- **Conflict Prediction**: ML to predict assignment conflicts early
+- **Approval Workflows**: Multi-team approvals for high-risk items
