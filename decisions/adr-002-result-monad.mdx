@@ -1,0 +1,285 @@
+---
+title: "ADR-002: Result Monad Instead of Exceptions"
+description: "Architecture Decision Record - Error handling approach"
+---
+
+# ADR-002: Result Monad Instead of Exceptions
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+Ruby and Rails traditionally use exceptions for error handling. For unexpected errors (database corruption, network failures), exceptions make sense. But for **expected errors** (invalid input, resource not found, permission denied), exceptions create problems:
+
+- **Silent failures**: If a developer forgets to catch an exception, the error disappears
+- **Invisible error paths**: Method signatures don't show what errors can occur
+- **Performance overhead**: Exception handling is expensive in Ruby
+- **Mixing error handling with control flow**: Makes code harder to reason about
+
+Example of traditional Rails approach:
+```ruby
+def create_artifact(params)
+  raise "Invalid project" if Project.find(params[:project_id]).nil?  # ❌
+  raise "Missing title" if params[:title].blank?                     # ❌
+  artifact = Artifact.create!(params)
+  artifact
+rescue StandardError => e
+  handle_error(e)
+end
+```
+
+Problems with this approach:
+- Exception raised in line 2 vs. line 4 is unclear to the caller
+- If caller forgets `rescue`, the error propagates unexpectedly
+- Performance hit from raising exceptions
+- Hard to test both success and failure paths
+
+---
+
+## Decision
+
+Use a **Result monad** (success/failure) for expected errors:
+
+```ruby
+def create_artifact(params)
+  project = repository.find_project(params[:project_id])
+  return Shared::Result.failure("Project not found") unless project
+
+  return Shared::Result.failure("Title is required") if params[:title].blank?
+
+  artifact = repository.create_artifact(params)
+  @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+
+  Shared::Result.success(artifact)
+end
+
+# Caller always knows what to expect
+result = create_artifact(params)
+if result.success?
+  render json: result.value
+else
+  render json: { error: result.error }, status: 422
+end
+```
+
+---
+
+## Alternatives Considered
+
+### 1. Exceptions (Status Quo)
+**Pros**: Rails convention, familiar to most developers  
+**Cons**: Silent failures, invisible error paths, performance overhead for expected errors
+
+**Verdict**: Good for bugs, bad for expected errors.
+
+### 2. Tuples `[success, value, error]`
+**Pros**: Simple, explicit  
+**Cons**: Less ergonomic, can't chain operations easily, easy to forget to check result
+
+**Verdict**: Works but less composable.
+
+### 3. Try Types (like Swift/Kotlin)
+**Pros**: Type-safe, explicit  
+**Cons**: Not mature in Ruby ecosystem
+
+**Verdict**: Good idea, poor Ruby support.
+
+---
+
+## Rationale
+
+### ✓ Visibility
+Error paths are **explicit in code**:
+```ruby
+# Clear what can fail
+result = create_artifact(params)
+       .and_then { |artifact| link_to_requirement(artifact) }
+       .and_then { |artifact| notify_watchers(artifact) }
+
+# Obvious that we handle failures
+.match { |r| r.success? ? render_success(r.value) : render_error(r.error) }
+```
+
+### ✓ Composability
+Chain operations elegantly:
+```ruby
+Service.create(params)
+  .and_then { |item| validate(item) }
+  .map { |item| transform(item) }
+  .and_then { |item| save(item) }
+  .match { |r| r.success? ? handle_success(r) : handle_error(r) }
+```
+
+### ✓ Performance
+No exception overhead for expected errors:
+- Exceptions in Ruby are **very expensive** (stack unwinding, allocation)
+- Result monad is just a simple object
+- Better performance for high-volume operations
+
+### ✓ Testing
+Easy to test both paths:
+```ruby
+# Success case
+result = service.create_artifact(valid_params)
+expect(result).to be_success
+expect(result.value).to be_a(Artifact)
+
+# Failure case
+result = service.create_artifact(invalid_params)
+expect(result).to be_failure
+expect(result.error).to include("Title is required")
+```
+
+### ✓ Clarity
+Developers immediately see all possible outcomes:
+```ruby
+# Not: "This method might raise an exception"
+# But: "This method returns a Result with success? method"
+result = create_artifact(...)
+if result.success?
+  # We have a valid artifact
+else
+  # We have a clear error message
+end
+```
+
+---
+
+## Consequences
+
+### ✅ Positive
+- Error paths are **explicit** in code
+- Operations are **composable** and chainable
+- **No performance penalty** for expected errors
+- **Clear semantics**: success or failure, never ambiguous
+- **Easier testing**: test both paths without exception handling
+
+### ⚠️ Negative
+- **Different from Rails conventions**: Rails developers expect exceptions
+- **More verbose**: Every method returns Result instead of raising
+- **Chaining syntax**: Some developers find `and_then` unfamiliar
+- **Legacy integration**: If calling Rails code, must handle its exceptions
+
+### 🛡️ Mitigation
+- Provide [examples and patterns](../architecture/patterns.mdx)
+- Document the rationale in architecture guide
+- Offer wrapper methods for Rails code that raises exceptions
+- Team training on Result monad usage
+
+---
+
+## Implementation
+
+### Basic Result Monad
+```ruby
+module Shared
+  class Result
+    attr_reader :error, :value, :data
+
+    def self.success(value = nil, **data)
+      new(success: true, value: value, data: data)
+    end
+
+    def self.failure(error, **data)
+      new(success: false, error: error, data: data)
+    end
+
+    def initialize(success:, value: nil, error: nil, data: {})
+      @success = success
+      @value = value
+      @error = error
+      @data = data
+    end
+
+    def success?
+      @success
+    end
+
+    def failure?
+      !@success
+    end
+
+    def and_then
+      return self if failure?
+      yield(value)
+    end
+
+    def map
+      return self if failure?
+      Result.success(yield(value))
+    end
+
+    def match
+      if success?
+        yield(self)
+      else
+        yield(self)
+      end
+    end
+  end
+end
+```
+
+### Usage Pattern
+```ruby
+# In domain service
+def create_artifact(project_id:, title:, description:)
+  # Step 1: Verify (format validation)
+  verify_result = Verify.call(Request.new(project_id, title))
+  return verify_result if verify_result.failure?
+
+  # Step 2: Validate (semantic validation)
+  validate_result = Validate.new(repositories).call(verify_result.value)
+  return validate_result if validate_result.failure?
+
+  # Step 3: Command (execute)
+  Command.new(repositories, event_dispatcher).call(validate_result.value, **validate_result.data)
+end
+
+# In controller
+result = service.create_artifact(
+  project_id: params[:project_id],
+  title: params[:title],
+  description: params[:description]
+)
+
+if result.success?
+  render json: serialize(result.value), status: 201
+else
+  render json: { error: result.error }, status: 422
+end
+```
+
+---
+
+## When to Use Exceptions
+
+**Still use exceptions for**:
+- Bugs in the application (programming errors)
+- Unexpected system failures (database down, disk full)
+- Configuration errors (missing ENV variables)
+
+**Don't use exceptions for**:
+- Validation errors (invalid input)
+- Business logic failures (resource not found)
+- Permission errors (user not authorized)
+- Expected error conditions
+
+---
+
+## Related Decisions
+
+- [ADR-001: Domain-Driven Design with Rails](./adr-001-ddd.mdx)
+- [ADR-005: Dry-rb for Validation and Types](./adr-005-dry-rb.mdx)
+
+---
+
+## References
+
+- [Design Principles - Result Monad](../architecture/design-principles.mdx#5-result-monad-for-error-handling)
+- [Patterns - Using Result Monad](../architecture/patterns.mdx)
+- [dry-monads Documentation](https://dry-rb.org/gems/dry-monads/)

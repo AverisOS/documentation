@@ -1,0 +1,212 @@
+---
+title: "Quick Start"
+description: "Get oriented to AverisOS in 5 minutes"
+---
+
+# Quick Start: 5-Minute Orientation
+
+This guide gets you oriented to AverisOS in 5 minutes. We'll walk through the core concepts and show you how to think about software delivery.
+
+## The Core Idea (1 minute)
+
+AverisOS connects everything in software delivery:
+
+```
+Requirement → Feature → Code → Test → Release
+    ↓          ↓         ↓       ↓       ↓
+  "User can login"  → "LoginService" → "login_spec.rb" → "v1.2.0"
+```
+
+Every arrow represents a **traced relationship**. When anything changes, you see the impact instantly.
+
+## The Four Core Concepts (2 minutes)
+
+### 1. Artifacts
+Any work item in software delivery. Examples:
+- **Requirement**: "Users can log in with SSO"
+- **Feature**: "SSO Login Service"
+- **Code**: "app/services/sso_login.rb"
+- **Test**: "LoginService handles SSO tokens"
+- **Release**: "v1.2.0 - SSO Support"
+
+### 2. Relationships
+How artifacts connect. Examples:
+- Requirement *implements* Feature
+- Feature *uses* Code
+- Code *is tested by* Test
+- Test *is included in* Release
+
+### 3. Impact Analysis
+"What breaks if I change this?" The system shows:
+- All downstream dependencies
+- Affected tests
+- Impacted releases
+- Required changes
+
+Example:
+```
+Changing: "Users can log in with SSO"
+├── Affects Feature: "SSO Login Service"
+│   ├── Affects Code: "app/services/sso_login.rb"
+│   │   ├── Covered by Test: "LoginService handles SSO tokens"
+│   │   └── Covered by Test: "LoginService handles token refresh"
+│   └── Affects Release: "v1.2.0"
+└── Affects Feature: "User Onboarding" (depends on SSO)
+```
+
+### 4. Traceability
+Every artifact has:
+- **Owner**: Who created and owns it
+- **Status**: Draft, Active, Complete, Archived
+- **History**: All changes and who made them
+- **Links**: All relationships to other artifacts
+
+## The Common Workflows (2 minutes)
+
+### Workflow 1: New Feature Development
+
+```
+1. Create Requirement
+   "Users can reset forgotten passwords"
+   
+2. Create Feature
+   "Password Reset Flow"
+   Link: Feature *implements* Requirement
+   
+3. Create Tests
+   "PasswordReset handles invalid email"
+   "PasswordReset sends reset link"
+   Link: Test *validates* Feature
+   
+4. Create Code
+   "app/services/password_reset.rb"
+   Link: Code *implements* Feature
+   
+5. Create Release
+   "v1.3.0 - Password Reset"
+   Link: Release *includes* Code
+```
+
+**Result**: Perfect traceability. You can:
+- See which requirement drove this work
+- See which tests verify it
+- See which code implements it
+- See which release shipped it
+- See if any tests are missing
+
+### Workflow 2: Investigate a Bug
+
+```
+Bug: "Users getting invalid tokens when SSO returns early"
+
+1. Find related Requirement
+   "Users can log in with SSO"
+   
+2. Analyze Impact
+   What code implements this requirement?
+   → "app/services/sso_login.rb"
+   
+   What tests cover it?
+   → "LoginService handles SSO tokens"
+   → "LoginService handles early returns"
+   
+   What release shipped it?
+   → "v1.2.0"
+   
+3. Fix Code
+   → Update "app/services/sso_login.rb"
+   
+4. Verify Tests Pass
+   → Run "LoginService handles early returns"
+   
+5. Ship Release
+   → "v1.2.1 - SSO Bug Fix"
+   Link: Release *fixes* Requirement
+```
+
+**Result**: Clear path from bug to fix to verification.
+
+### Workflow 3: Assess Impact Before Change
+
+```
+Question: "What happens if we remove SSO and go OAuth-only?"
+
+1. Find Requirement
+   "Users can log in with SSO"
+   
+2. Analyze Impact
+   This requirement affects:
+   ├── Feature: "SSO Login Service"
+   │   ├── Code: "app/services/sso_login.rb" (needs rewrite)
+   │   ├── Tests: 3 tests (need updates)
+   │   └── Release: "v1.2.0" (needs patch)
+   ├── Requirement: "User Onboarding" (depends on SSO)
+   │   ├── Code: "app/services/onboarding.rb" (needs changes)
+   │   └── Tests: 2 tests (affected)
+   └── Release: "v1.3.0" (includes onboarding)
+   
+3. Decision
+   "Removing SSO affects 3 requirements, 8 code files, 5 tests, 2 releases."
+   → "Let's plan this for Phase 2 instead"
+```
+
+**Result**: Data-driven decision making with full impact visibility.
+
+## Key Mental Models
+
+### Think in Artifacts, Not Tasks
+
+❌ **Wrong**: "Alice is working on fixing the login bug"  
+✓ **Right**: "We're updating the LoginService to handle early token returns, which validates the 'SSO Token Refresh' requirement, which is tracked in v1.2.1"
+
+### Think in Relationships, Not Isolation
+
+❌ **Wrong**: "Code exists because Alice wrote it"  
+✓ **Right**: "Code exists because it implements a specific feature, which implements a specific requirement, which serves a specific user need"
+
+### Think in Impact, Not Assumptions
+
+❌ **Wrong**: "Let's just change this small function"  
+✓ **Right**: "This function is used by 3 features, covered by 5 tests, and included in 2 releases. Changing it requires updating all of these."
+
+## Common Questions
+
+**Q: What's the difference between a Requirement and a Feature?**
+
+A: Requirement = *what* the user needs. Feature = *how* we deliver it.
+- Requirement: "Users can reset forgotten passwords"
+- Feature: "Password Reset Flow" (how we implement it)
+
+**Q: Do I need to link everything manually?**
+
+A: In Phase 1, yes. In Phase 2, AI will suggest links automatically.
+
+**Q: What if I make a linking mistake?**
+
+A: You can update links anytime. The audit trail shows who changed what when.
+
+**Q: How do I organize large projects with 1000+ artifacts?**
+
+A: Use project hierarchies, domains, and filters. Search by artifact type, owner, status, or linked relationships.
+
+## Next Steps
+
+1. **Understand the architecture**: See how AverisOS works under the hood in [Architecture Overview](/architecture/overview)
+2. **Learn the patterns**: See code examples in [Patterns & Examples](/architecture/patterns)
+3. **Set up locally**: Start developing with [Local Setup](/development/setup)
+4. **Review decisions**: Understand why we built it this way in [Decision Records](/decisions/adr-001-ddd)
+
+## Summary
+
+AverisOS connects your software delivery lifecycle so you can:
+- ✓ Trace requirements → code → tests → releases
+- ✓ Analyze impact before making changes
+- ✓ Detect coverage gaps automatically
+- ✓ Make data-driven decisions
+- ✓ Onboard team members faster
+
+Every artifact is connected. Every relationship is traced. Every change shows its impact.
+
+---
+
+**Ready to dive deeper?** Start with [Product Overview](/getting-started/overview) or jump to [Architecture](/architecture/overview).

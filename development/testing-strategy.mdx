@@ -1,0 +1,487 @@
+---
+title: "Testing Strategy"
+description: "How and what to test in AverisOS"
+---
+
+# Testing Strategy
+
+AverisOS uses a layered testing approach aligned with the four-phase operation pattern.
+
+---
+
+## Testing Pyramid
+
+```
+      E2E Tests (10%)
+   Integration Tests (30%)
+Unit Tests (60%)
+```
+
+### Unit Tests (60%)
+- **Focus**: Verify phase (format validation)
+- **Speed**: <1ms per test
+- **Scope**: Single class/method
+- **Mocks**: Heavy mocking
+- **Database**: No database
+
+### Integration Tests (30%)
+- **Focus**: Validate phase (semantic validation)
+- **Speed**: 10-100ms per test
+- **Scope**: One feature with dependencies
+- **Mocks**: Minimal mocking
+- **Database**: Real database
+
+### E2E Tests (10%)
+- **Focus**: Full operation (Request → Verify → Validate → Command)
+- **Speed**: 100-1000ms per test
+- **Scope**: Full user flow
+- **Mocks**: None
+- **Database**: Real database
+
+---
+
+## Unit Tests (Verify Phase)
+
+Test format validation with **no database access**.
+
+### Example: CreateArtifact::Verify
+
+```ruby
+describe CreateArtifact::Verify do
+  describe "title validation" do
+    it "rejects blank title" do
+      request = Request.new(project_id: 1, type: "requirement", title: "")
+      result = Verify.call(request)
+      expect(result).to be_failure
+      expect(result.error).to include("required")
+    end
+
+    it "rejects title > 500 chars" do
+      request = Request.new(
+        project_id: 1,
+        type: "requirement",
+        title: "A" * 501
+      )
+      result = Verify.call(request)
+      expect(result).to be_failure
+      expect(result.error).to include("max 500")
+    end
+
+    it "accepts valid title" do
+      request = Request.new(
+        project_id: 1,
+        type: "requirement",
+        title: "User can login"
+      )
+      result = Verify.call(request)
+      expect(result).to be_success
+    end
+  end
+
+  describe "type validation" do
+    it "rejects invalid type" do
+      request = Request.new(project_id: 1, type: "invalid", title: "Test")
+      result = Verify.call(request)
+      expect(result).to be_failure
+    end
+
+    it "accepts valid types" do
+      %w[requirement feature task code test].each do |type|
+        request = Request.new(project_id: 1, type: type, title: "Test")
+        result = Verify.call(request)
+        expect(result).to be_success
+      end
+    end
+  end
+end
+```
+
+### Guidelines
+
+- ✓ Test **all validation rules** (positive and negative)
+- ✓ Test **edge cases** (empty, too long, invalid format)
+- ✓ Test **error messages** (are they clear?)
+- ✓ **No database** access
+- ✓ **No mocks** (input is just a struct)
+- ✓ Run with: `bundle exec rspec domains/traceability/spec/verify_spec.rb`
+
+---
+
+## Integration Tests (Validate Phase)
+
+Test semantic validation **with database**.
+
+### Example: CreateArtifact::Validate
+
+```ruby
+describe CreateArtifact::Validate do
+  let(:repositories) do
+    {
+      project: double(find: project),
+      user: double(find: user)
+    }
+  end
+
+  let(:project) { build(:project) }
+  let(:user) { build(:user) }
+
+  describe "project validation" do
+    it "rejects unknown project" do
+      repositories[:project] = double(find: nil)
+      validate = Validate.new(repositories)
+      request = Request.new(project_id: 99999, type: "requirement", title: "Test")
+
+      result = validate.call(request)
+      expect(result).to be_failure
+      expect(result.error).to include("Project not found")
+    end
+
+    it "accepts known project" do
+      validate = Validate.new(repositories)
+      request = Request.new(project_id: 1, type: "requirement", title: "Test")
+
+      result = validate.call(request)
+      expect(result).to be_success
+    end
+  end
+
+  describe "user validation" do
+    it "rejects unknown user" do
+      repositories[:user] = double(find: nil)
+      validate = Validate.new(repositories)
+      request = Request.new(
+        project_id: 1,
+        type: "requirement",
+        title: "Test",
+        owner_id: 99999
+      )
+
+      result = validate.call(request)
+      expect(result).to be_failure
+    end
+  end
+
+  describe "data prefetching" do
+    it "prefetches project data for Command" do
+      validate = Validate.new(repositories)
+      request = Request.new(project_id: 1, type: "requirement", title: "Test")
+
+      result = validate.call(request)
+      expect(result.data[:project]).to eq(project)
+    end
+  end
+end
+```
+
+### Guidelines
+
+- ✓ Test **business rules** (does project exist, is user authorized, etc.)
+- ✓ Test **prefetched data** (what does Command get?)
+- ✓ **Use database** (real or test double)
+- ✓ **Mock external dependencies** (API calls, slow services)
+- ✓ Test **all failure paths**
+- ✓ Run with: `bundle exec rspec domains/traceability/spec/validate_spec.rb`
+
+---
+
+## E2E Tests (Full Operation)
+
+Test the **complete flow** from Request through Command.
+
+### Example: CreateArtifact Integration
+
+```ruby
+describe "CreateArtifact Integration" do
+  let(:service) { Traceability::TraceabilityService.new(container: AverisOS::Container) }
+  let(:project) { create(:project) }
+  let(:user) { create(:user) }
+  let(:event_dispatcher) { AverisOS::Container['services.event_dispatcher'] }
+
+  describe "successful artifact creation" do
+    it "creates artifact with all attributes" do
+      result = service.create_artifact(
+        project_id: project.id,
+        type: "requirement",
+        title: "User can login",
+        description: "Users should be able to log in with SSO",
+        owner_id: user.id
+      )
+
+      expect(result).to be_success
+      expect(Artifact.count).to eq(1)
+
+      artifact = Artifact.first
+      expect(artifact.title).to eq("User can login")
+      expect(artifact.owner_id).to eq(user.id)
+      expect(artifact.status).to eq("draft")
+    end
+
+    it "emits ArtifactCreated event" do
+      expect(event_dispatcher).to receive(:dispatch) do |event|
+        expect(event).to be_a(Traceability::ArtifactCreated)
+      end
+
+      service.create_artifact(
+        project_id: project.id,
+        type: "requirement",
+        title: "Test",
+        owner_id: user.id
+      )
+    end
+  end
+
+  describe "validation failures" do
+    it "returns failure for invalid input" do
+      result = service.create_artifact(
+        project_id: project.id,
+        type: "requirement",
+        title: "",  # Invalid: blank
+        owner_id: user.id
+      )
+
+      expect(result).to be_failure
+      expect(Artifact.count).to eq(0)
+    end
+
+    it "returns failure for unknown project" do
+      result = service.create_artifact(
+        project_id: 99999,
+        type: "requirement",
+        title: "Test",
+        owner_id: user.id
+      )
+
+      expect(result).to be_failure
+    end
+  end
+
+  describe "side effects" do
+    it "triggers watchers notification event" do
+      # Test that event is emitted and handled
+      expect {
+        service.create_artifact(
+          project_id: project.id,
+          type: "requirement",
+          title: "Test",
+          owner_id: user.id
+        )
+      }.to change { Email.count }.by(1)
+    end
+  end
+end
+```
+
+### Guidelines
+
+- ✓ Test **complete user flows** (success and failure)
+- ✓ Test **side effects** (events emitted, emails sent, etc.)
+- ✓ Test **error handling** (validation failures, permissions, etc.)
+- ✓ **Use real database** (not mocked)
+- ✓ Test **cross-domain communication** (if it emits events)
+- ✓ Run with: `bundle exec rspec spec/integration/`
+
+---
+
+## Testing Best Practices
+
+### 1. One Assertion Per Test (When Possible)
+
+```ruby
+# ❌ Bad: Multiple assertions make it hard to see what failed
+it "creates artifact and sends email" do
+  result = service.create_artifact(...)
+  expect(result).to be_success
+  expect(Artifact.count).to eq(1)
+  expect(Email.count).to eq(1)
+  expect(Email.last.subject).to include("created")
+end
+
+# ✓ Better: Separate tests
+it "creates artifact" do
+  result = service.create_artifact(...)
+  expect(result).to be_success
+  expect(Artifact.count).to eq(1)
+end
+
+it "sends email notification" do
+  expect {
+    service.create_artifact(...)
+  }.to change { Email.count }.by(1)
+end
+```
+
+### 2. Use Descriptive Test Names
+
+```ruby
+# ❌ Bad: What does this test?
+it "works" do
+  expect(result).to be_success
+end
+
+# ✓ Good: Clear what it tests
+it "returns success when artifact is created with valid input" do
+  result = service.create_artifact(valid_params)
+  expect(result).to be_success
+end
+```
+
+### 3. Test Both Success and Failure
+
+```ruby
+# ✓ Good: Test both paths
+describe "input validation" do
+  it "accepts valid title" do
+    result = verify.call(Request.new(title: "Test"))
+    expect(result).to be_success
+  end
+
+  it "rejects blank title" do
+    result = verify.call(Request.new(title: ""))
+    expect(result).to be_failure
+  end
+end
+```
+
+### 4. Use Fixtures/Factories
+
+```ruby
+# ✓ Good: Use factories
+let(:project) { create(:project) }
+let(:user) { create(:user) }
+
+# Instead of creating raw:
+# Project.create(name: "Test", ...) # Hard to understand all fields
+```
+
+### 5. Keep Tests Independent
+
+```ruby
+# ❌ Bad: Tests depend on each other
+it "creates artifact" do
+  @artifact = Artifact.create(...)
+end
+
+it "links artifact" do
+  # Depends on @artifact from previous test
+  link(@artifact, ...)
+end
+
+# ✓ Good: Each test is independent
+it "creates artifact" do
+  artifact = Artifact.create(...)
+  expect(artifact).to be_valid
+end
+
+it "links artifacts" do
+  artifact1 = create(:artifact)
+  artifact2 = create(:artifact)
+  link(artifact1, artifact2)
+  expect(link).to be_valid
+end
+```
+
+---
+
+## Running Tests
+
+### All Tests
+```bash
+bundle exec rspec
+```
+
+### Specific File
+```bash
+bundle exec rspec domains/traceability/spec/create_artifact_spec.rb
+```
+
+### Specific Test
+```bash
+bundle exec rspec domains/traceability/spec/create_artifact_spec.rb:42
+```
+
+### With Pattern
+```bash
+bundle exec rspec --pattern "**/*_spec.rb"
+```
+
+### With Coverage
+```bash
+COVERAGE=true bundle exec rspec
+# Check coverage/index.html
+```
+
+### Fast Tests Only
+```bash
+bundle exec rspec --tag ~slow
+```
+
+---
+
+## Coverage Goals
+
+- **Overall**: >80% coverage
+- **Critical paths**: 100% coverage (artifact creation, linking)
+- **Integration points**: 100% coverage (event emission)
+- **Utilities**: 100% coverage
+
+---
+
+## CI/CD Pipeline
+
+Tests run automatically on:
+1. **Pull requests**: All tests must pass
+2. **Merge to main**: All tests must pass
+3. **Release**: All tests must pass + security checks
+
+Must pass before deploying.
+
+---
+
+## Test Maintenance
+
+### Keep Tests Updated
+- When you change code, update tests
+- Don't comment out failing tests; fix them
+- Remove tests that no longer apply
+
+### Refactor Tests
+- Extract common setup to `let` blocks
+- Use shared examples for similar tests
+- Keep tests as clear as code
+
+---
+
+## Debugging Failed Tests
+
+### Verbose Output
+```bash
+bundle exec rspec -f d  # Detailed format
+```
+
+### Stop on First Failure
+```bash
+bundle exec rspec --fail-fast
+```
+
+### Show Full Output
+```bash
+bundle exec rspec --format progress --format documentation
+```
+
+### Debug with pry
+```ruby
+it "should work" do
+  result = do_something
+  binding.pry  # Debugger will stop here
+  expect(result).to be_success
+end
+```
+
+---
+
+## Resources
+
+- **RSpec Docs**: https://rspec.info
+- **Rails Testing Guide**: https://guides.rubyonrails.org/testing.html
+- **Factory Bot**: https://github.com/thoughtbot/factory_bot
+- **VCR (HTTP recording)**: https://github.com/vcr/vcr

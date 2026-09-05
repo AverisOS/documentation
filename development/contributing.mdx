@@ -1,0 +1,387 @@
+---
+title: "Contributing Guidelines"
+description: "How to contribute to AverisOS development"
+---
+
+# Contributing Guidelines
+
+Thank you for contributing to AverisOS! This guide helps you make great contributions.
+
+## Code of Conduct
+
+Be respectful, inclusive, and professional. We're building something great together.
+
+---
+
+## Before You Start
+
+1. **Check existing issues**: Don't duplicate work
+2. **Ask before big changes**: Create an issue to discuss large refactors
+3. **Read the architecture**: Understand [Design Principles](../architecture/design-principles.mdx)
+4. **Setup locally**: Follow [Local Development Setup](./setup.mdx)
+
+---
+
+## Making Changes
+
+### 1. Create a Branch
+```bash
+# Create feature branch
+git checkout -b feature/artifact-linking
+
+# Or bugfix branch
+git checkout -b fix/circular-dependency-detection
+
+# Branch naming: feature/*, fix/*, docs/*, chore/*
+```
+
+### 2. Write Code Following Patterns
+
+#### Follow DDD Principles
+- **Business logic** → domain services/operations
+- **Models** → thin, associations only
+- **Controllers** → routing and serialization only
+- See [Design Principles](../architecture/design-principles.mdx)
+
+#### Use the Four-Phase Pattern
+For every operation:
+1. **Request**: Input struct
+2. **Verify**: Format validation
+3. **Validate**: Semantic validation
+4. **Command**: Execute operation
+
+See [Patterns & Examples](../architecture/patterns.mdx)
+
+#### Follow Style Guidelines
+```bash
+# Run linter
+bundle exec rubocop
+
+# Fix issues automatically
+bundle exec rubocop -a
+
+# Or fix manually (preferred for clarity)
+```
+
+### 3. Write Tests
+
+**Unit tests** (Verify phase):
+```ruby
+describe CreateArtifact::Verify do
+  it "validates input format" do
+    request = Request.new(title: "")
+    result = Verify.call(request)
+    expect(result).to be_failure
+  end
+end
+```
+
+**Integration tests** (Validate phase):
+```ruby
+describe CreateArtifact::Validate do
+  it "checks project exists" do
+    request = Request.new(project_id: 99999)
+    result = Validate.new(repositories).call(request)
+    expect(result).to be_failure
+  end
+end
+```
+
+**E2E tests** (full operation):
+```ruby
+describe "CreateArtifact Integration" do
+  it "creates artifact and emits event" do
+    result = service.create_artifact(...)
+    expect(result).to be_success
+    expect(Artifact.count).to eq(1)
+  end
+end
+```
+
+**Run tests**:
+```bash
+bundle exec rspec
+```
+
+### 4. Document Changes
+
+#### Code Comments
+Comment on **WHY**, not **WHAT**:
+
+```ruby
+# ❌ Wrong: Obvious from code
+# Loop through artifacts
+artifacts.each { |a| ... }
+
+# ✓ Right: Explains decision
+# Prefetch artifacts to avoid N+1 queries in Validate phase
+artifacts.each { |a| ... }
+```
+
+#### Update Documentation
+If you change architecture or add a new domain, update relevant docs:
+- `domains/[domain]/README.md`
+- `ARCHITECTURE.md` (if structural changes)
+- Domain guides in `documentation/`
+
+### 5. Commit with Clear Messages
+
+```bash
+# One feature per commit
+git commit -m "feat: add circular dependency detection"
+
+# Commit format
+# feat: new feature
+# fix: bug fix
+# docs: documentation
+# test: test addition
+# refactor: code cleanup
+
+# Include context
+git commit -m "feat: add circular dependency detection
+
+When linking artifacts, check for circular dependencies before
+creating the relationship. Prevents requirement → feature → requirement
+cycles which break impact analysis.
+
+Implements LinkArtifacts::Command validation layer.
+Closes #123"
+```
+
+### 6. Push and Create PR
+
+```bash
+# Push branch
+git push -u origin feature/artifact-linking
+
+# GitHub will show "Compare & pull request" button
+# Click it and create PR
+```
+
+---
+
+## Pull Request Guidelines
+
+### PR Title
+Clear, descriptive title that says what changed:
+- ✓ "Add circular dependency detection to LinkArtifacts"
+- ✓ "Fix N+1 query in impact analysis"
+- ✓ "Update DDD guide with examples"
+- ❌ "Fix stuff"
+- ❌ "WIP"
+
+### PR Description
+```markdown
+## Summary
+What does this PR do? One paragraph.
+
+## Changes
+- List of specific changes
+- Point 2
+- Point 3
+
+## Testing
+How should reviewer test this?
+- Manual test steps
+- Or: "All existing tests pass"
+- New tests added: X
+
+## Checklist
+- [ ] Code follows style guide
+- [ ] New tests added (if feature)
+- [ ] Documentation updated (if needed)
+- [ ] No breaking changes
+```
+
+### What Reviewers Look For
+1. **Does it follow DDD patterns?**
+2. **Is there good test coverage?**
+3. **Are error messages clear?**
+4. **Is the code readable?**
+5. **Does it need documentation?**
+
+---
+
+## Code Review Process
+
+### As a Contributor
+- Respond to feedback promptly
+- Ask for clarification if unclear
+- Don't take criticism personally
+- Push fixes as new commits (don't force-push)
+
+### As a Reviewer
+- Be kind and constructive
+- Ask questions instead of making demands
+- Explain the "why" behind feedback
+- Approve when you're satisfied
+
+---
+
+## Common Patterns
+
+### Adding a New Operation
+
+```
+domains/[domain]/domain/[operation_name]/
+├── request.rb      # Input parameters
+├── verify.rb       # Format validation
+├── validate.rb     # Semantic validation
+└── command.rb      # Execute operation
+
+domains/[domain]/spec/
+└── [operation_name]_spec.rb
+```
+
+### Adding a New Domain
+
+1. Create directory: `domains/[domain_name]/`
+2. Create service: `domains/[domain_name]/domain/[domain]_service.rb`
+3. Add operations under `domain/[operation_name]/`
+4. Register in `config/initializers/container.rb`
+5. Add event subscriptions in `config/initializers/event_subscriptions.rb`
+
+### Adding a New Event
+
+```ruby
+# domains/[domain]/events/[event_name].rb
+module Traceability
+  class ArtifactCreated < Shared::Event
+    attr_reader :artifact_id, :project_id
+
+    def initialize(artifact_id:, project_id:)
+      super(artifact_id: artifact_id, project_id: project_id)
+    end
+  end
+end
+
+# Subscribe in config/initializers/event_subscriptions.rb
+event_dispatcher.subscribe(Traceability::ArtifactCreated) do |event|
+  # Handle event
+end
+```
+
+---
+
+## Reporting Bugs
+
+### Bug Title
+Clear description:
+- ✓ "Circular dependency not detected when linking artifacts"
+- ✓ "Impact analysis returns duplicate artifacts"
+- ❌ "Doesn't work"
+
+### Bug Description
+```markdown
+## Description
+What did you expect? What happened instead?
+
+## Steps to Reproduce
+1. Create artifact A
+2. Create artifact B
+3. Link A → B
+4. Try to link B → A (should fail)
+
+## Actual Result
+Link is created (shouldn't be)
+
+## Expected Result
+Circular dependency error
+
+## Environment
+- OS: macOS 13.0
+- Ruby: 3.2.0
+- PostgreSQL: 14.5
+```
+
+---
+
+## Feature Requests
+
+### Request Title
+Clear description:
+- ✓ "Add bulk artifact linking"
+- ✓ "Support GraphQL queries on artifact relationships"
+- ❌ "Faster"
+
+### Request Description
+```markdown
+## Problem
+What problem does this solve?
+
+## Proposed Solution
+How would you implement this?
+
+## Alternative Solutions
+Other approaches?
+
+## Additional Context
+Links to related issues, conversations, etc.
+```
+
+---
+
+## Getting Help
+
+- **Questions?** Open an issue with `question` label
+- **Design discussion?** Check [DECISIONS.md](../decisions/)
+- **Architecture question?** See [Design Principles](../architecture/design-principles.mdx)
+- **Local setup issue?** See [Setup Troubleshooting](./setup.mdx#troubleshooting)
+
+---
+
+## CI/CD Pipeline
+
+When you push a PR:
+
+1. **Linting**: `rubocop` checks code style
+2. **Tests**: `rspec` runs all tests
+3. **Coverage**: Code coverage must stay above 80%
+4. **Security**: `bundler-audit` checks dependencies
+
+All must pass before merging.
+
+---
+
+## Deployment
+
+- **Staging**: Merging to `main` deploys to staging
+- **Production**: Creating a release tag deploys to production
+- **Monitoring**: Check Datadog for errors/performance
+
+---
+
+## Code Ownership
+
+| Area | Owner | Backup |
+|------|-------|--------|
+| Traceability | Aaron | TBD |
+| Authentication | TBD | TBD |
+| Git Integration | TBD | TBD |
+| Testing | TBD | TBD |
+| Infrastructure | TBD | TBD |
+
+Owners review and approve PRs in their area.
+
+---
+
+## Releasing
+
+When ready to release:
+
+1. Update `VERSION` in `lib/averis_os/version.rb`
+2. Update `CHANGELOG.md`
+3. Create git tag: `git tag v1.0.0`
+4. Push tag: `git push --tags`
+5. CI/CD automatically deploys
+
+---
+
+## Questions?
+
+Still have questions?
+- Check [CLAUDE.md](../architecture/../CLAUDE.md) for AI collaboration guidelines
+- Read [Architecture](../architecture/) docs
+- Ask in GitHub Discussions
+
+Thank you for contributing! 🙏

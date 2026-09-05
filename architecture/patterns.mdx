@@ -1,0 +1,445 @@
+---
+title: "Patterns & Examples"
+description: "Common code patterns and implementation examples for AverisOS"
+---
+
+# Common Patterns
+
+This guide covers the most common patterns you'll use when building operations in AverisOS.
+
+## Pattern 1: Operation with Simple Validation
+
+**Use when**: Minimal business rules, mostly CRUD operations.
+
+### File Structure
+```
+domains/authentication/domain/
+├── authentication_service.rb
+├── register_user/
+│   ├── request.rb
+│   ├── verify.rb
+│   ├── validate.rb
+│   └── command.rb
+```
+
+### Implementation
+
+**Request** (input struct):
+```ruby
+module Authentication
+  module RegisterUser
+    class Request
+      attr_reader :email, :password, :name
+
+      def initialize(email:, password:, name:)
+        @email = email
+        @password = password
+        @name = name
+      end
+    end
+  end
+end
+```
+
+**Verify** (format validation, no DB):
+```ruby
+module Authentication
+  module RegisterUser
+    class Verify
+      def self.call(request)
+        return Shared::Result.failure("Email is required") if request.email.blank?
+        return Shared::Result.failure("Email is invalid") unless email_valid?(request.email)
+        return Shared::Result.failure("Password is required") if request.password.blank?
+        return Shared::Result.failure("Password must be 8+ characters") if request.password.length < 8
+
+        Shared::Result.success(request)
+      end
+
+      private
+
+      def self.email_valid?(email)
+        /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i.match?(email)
+      end
+    end
+  end
+end
+```
+
+**Validate** (semantic validation, with DB):
+```ruby
+module Authentication
+  module RegisterUser
+    class Validate
+      def initialize(user_repository:)
+        @user_repository = user_repository
+      end
+
+      def call(request)
+        # Check if user already exists
+        if @user_repository.find_by_email(request.email)
+          return Shared::Result.failure("Email already registered")
+        end
+
+        Shared::Result.success(request)
+      end
+    end
+  end
+end
+```
+
+**Command** (execute operation):
+```ruby
+module Authentication
+  module RegisterUser
+    class Command
+      def initialize(user_repository:, event_dispatcher:)
+        @user_repository = user_repository
+        @event_dispatcher = event_dispatcher
+      end
+
+      def call(request)
+        user = @user_repository.create(
+          email: request.email,
+          password_digest: BCrypt::Password.create(request.password),
+          name: request.name
+        )
+
+        @event_dispatcher.dispatch(UserRegistered.new(user_id: user.id))
+        Shared::Result.success(user)
+      end
+    end
+  end
+end
+```
+
+---
+
+## Pattern 2: Operation with Complex Business Logic
+
+**Use when**: Multiple checks, side effects, cross-domain concerns.
+
+### Example: Link Artifacts with Circular Dependency Detection
+
+**Verify** (format validation):
+```ruby
+module Traceability
+  module LinkArtifacts
+    class Verify
+      def self.call(request)
+        # 1. Check IDs are provided
+        return Shared::Result.failure("Source artifact ID is required") if request.source_id.blank?
+        return Shared::Result.failure("Target artifact ID is required") if request.target_id.blank?
+
+        # 2. Check they're not the same
+        if request.source_id == request.target_id
+          return Shared::Result.failure("Cannot link artifact to itself")
+        end
+
+        # 3. Check relationship type is valid
+        valid_types = %w[implements validates depends_on related_to]
+        unless valid_types.include?(request.relationship_type)
+          return Shared::Result.failure("Invalid relationship type")
+        end
+
+        Shared::Result.success(request)
+      end
+    end
+  end
+end
+```
+
+**Validate** (semantic validation with prefetching):
+```ruby
+module Traceability
+  module LinkArtifacts
+    class Validate
+      def initialize(artifact_repository:, relationship_repository:)
+        @artifact_repository = artifact_repository
+        @relationship_repository = relationship_repository
+      end
+
+      def call(request)
+        # 1. Check both artifacts exist
+        source = @artifact_repository.find(request.source_id)
+        return Shared::Result.failure("Source artifact not found") unless source
+
+        target = @artifact_repository.find(request.target_id)
+        return Shared::Result.failure("Target artifact not found") unless target
+
+        # 2. Check they're in the same project
+        if source.project_id != target.project_id
+          return Shared::Result.failure("Artifacts must be in the same project")
+        end
+
+        # 3. Check relationship doesn't already exist
+        if @relationship_repository.exists?(source.id, target.id, request.relationship_type)
+          return Shared::Result.failure("This relationship already exists")
+        end
+
+        # 4. Prefetch data for Command phase
+        Shared::Result.success(request, source: source, target: target)
+      end
+    end
+  end
+end
+```
+
+**Command** (with circular dependency detection):
+```ruby
+module Traceability
+  module LinkArtifacts
+    class Command
+      def initialize(relationship_repository:, event_dispatcher:)
+        @relationship_repository = relationship_repository
+        @event_dispatcher = event_dispatcher
+      end
+
+      def call(request, source:, target:)
+        # Check for circular dependencies
+        if creates_circular_dependency?(source, target)
+          return Shared::Result.failure("This would create a circular dependency")
+        end
+
+        # Create relationship
+        relationship = @relationship_repository.create(
+          source_artifact_id: source.id,
+          target_artifact_id: target.id,
+          relationship_type: request.relationship_type
+        )
+
+        # Emit event for other domains to react
+        @event_dispatcher.dispatch(
+          ArtifactsLinked.new(
+            relationship_id: relationship.id,
+            source_id: source.id,
+            target_id: target.id,
+            relationship_type: request.relationship_type
+          )
+        )
+
+        Shared::Result.success(relationship)
+      end
+
+      private
+
+      def creates_circular_dependency?(source, target)
+        # Simple check: if target already links back to source, it's circular
+        @relationship_repository.related_to?(target.id, source.id)
+      end
+    end
+  end
+end
+```
+
+---
+
+## Pattern 3: Operation that Composes Other Operations
+
+**Use when**: One operation needs to call another (e.g., create artifact AND link it to requirement).
+
+```ruby
+module Traceability
+  module CreateAndLinkArtifact
+    class Command
+      def initialize(create_service:, link_service:)
+        @create_service = create_service
+        @link_service = link_service
+      end
+
+      def call(create_request, link_request)
+        # Chain operations using Result monad's and_then
+        @create_service.call(create_request)
+          .and_then { |artifact| 
+            link_artifact(artifact, link_request)
+          }
+      end
+
+      private
+
+      def link_artifact(artifact, request)
+        link_request = LinkRequest.new(
+          source_id: artifact.id,
+          target_id: request.target_id,
+          relationship_type: request.relationship_type
+        )
+        @link_service.call(link_request)
+      end
+    end
+  end
+end
+```
+
+---
+
+## Pattern 4: Service Entry Point
+
+**Use when**: You need to orchestrate multiple operations or provide a simple API.
+
+```ruby
+module Traceability
+  class TraceabilityService
+    def initialize(container:)
+      @container = container
+    end
+
+    def create_artifact(project_id:, type:, title:, owner_id:)
+      request = CreateArtifact::Request.new(
+        project_id: project_id,
+        type: type,
+        title: title,
+        owner_id: owner_id
+      )
+
+      # Verify
+      result = CreateArtifact::Verify.call(request)
+      return result if result.failure?
+
+      # Validate
+      validate = CreateArtifact::Validate.new(
+        project_repository: @container['repositories.project'],
+        user_repository: @container['repositories.user']
+      )
+      result = validate.call(request)
+      return result if result.failure?
+
+      # Command
+      command = CreateArtifact::Command.new(
+        artifact_repository: @container['repositories.artifact'],
+        event_dispatcher: @container['services.event_dispatcher']
+      )
+      command.call(request, **result.data)
+    end
+  end
+end
+```
+
+---
+
+## Pattern 5: Request with Nested Validation
+
+**Use when**: Request has complex nested data structures.
+
+```ruby
+module Traceability
+  module CreateArtifactBatch
+    class Request
+      attr_reader :project_id, :artifacts, :link_rules
+
+      def initialize(project_id:, artifacts:, link_rules: [])
+        @project_id = project_id
+        @artifacts = artifacts.map { |a| ArtifactData.new(**a) }
+        @link_rules = link_rules.map { |r| LinkRule.new(**r) }
+      end
+    end
+
+    class ArtifactData
+      attr_reader :type, :title, :description
+
+      def initialize(type:, title:, description: "")
+        @type = type
+        @title = title
+        @description = description
+      end
+    end
+
+    class LinkRule
+      attr_reader :source_index, :target_index, :relationship_type
+
+      def initialize(source_index:, target_index:, relationship_type:)
+        @source_index = source_index
+        @target_index = target_index
+        @relationship_type = relationship_type
+      end
+    end
+
+    class Verify
+      def self.call(request)
+        # Check project_id
+        return Shared::Result.failure("Project ID is required") if request.project_id.blank?
+
+        # Check artifacts
+        return Shared::Result.failure("At least one artifact is required") if request.artifacts.empty?
+
+        # Verify each artifact
+        request.artifacts.each_with_index do |artifact, index|
+          return Shared::Result.failure("Artifact #{index}: type is required") if artifact.type.blank?
+          return Shared::Result.failure("Artifact #{index}: title is required") if artifact.title.blank?
+        end
+
+        # Verify link rules reference valid indices
+        request.link_rules.each do |rule|
+          if rule.source_index >= request.artifacts.length
+            return Shared::Result.failure("Link rule: source index out of range")
+          end
+          if rule.target_index >= request.artifacts.length
+            return Shared::Result.failure("Link rule: target index out of range")
+          end
+        end
+
+        Shared::Result.success(request)
+      end
+    end
+  end
+end
+```
+
+---
+
+## Testing the Patterns
+
+### Unit Test (Verify Phase)
+```ruby
+describe Traceability::CreateArtifact::Verify do
+  it "rejects blank title" do
+    request = Traceability::CreateArtifact::Request.new(
+      project_id: 1,
+      type: "requirement",
+      title: "",
+      owner_id: 1
+    )
+    result = described_class.call(request)
+    expect(result).to be_failure
+    expect(result.error).to include("Title is required")
+  end
+end
+```
+
+### Integration Test (Validate Phase)
+```ruby
+describe Traceability::CreateArtifact::Validate do
+  it "rejects unknown project" do
+    request = Traceability::CreateArtifact::Request.new(
+      project_id: 99999,
+      type: "requirement",
+      title: "Test",
+      owner_id: 1
+    )
+    validate = described_class.new(
+      project_repository: double(find: nil),
+      user_repository: double(find: build(:user))
+    )
+    result = validate.call(request)
+    expect(result).to be_failure
+    expect(result.error).to include("Project not found")
+  end
+end
+```
+
+### End-to-End Test (Full Operation)
+```ruby
+describe "CreateArtifact Integration" do
+  it "creates artifact and emits event" do
+    service = Traceability::TraceabilityService.new(container: AverisOS::Container)
+    result = service.create_artifact(
+      project_id: 1,
+      type: "requirement",
+      title: "User can login",
+      owner_id: 1
+    )
+
+    expect(result).to be_success
+    expect(Artifact.count).to eq(1)
+    # Verify event was dispatched
+  end
+end
+```

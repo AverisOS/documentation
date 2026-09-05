@@ -1,0 +1,340 @@
+---
+title: "ADR-010: Self-Hosted Option in Phase 2, Not Phase 1"
+description: "Architecture Decision Record - Deployment strategy"
+---
+
+# ADR-010: Self-Hosted Option in Phase 2, Not Phase 1
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+Should the MVP be SaaS, self-hosted, or both?
+
+### Self-Hosted
+- Customers run on their infrastructure
+- Better for enterprises (compliance, security)
+- Harder to operate
+
+### SaaS
+- Cloud-hosted, managed by us
+- Easier for us to operate
+- Easier for small teams
+- Harder for enterprises (compliance)
+
+### Both
+- Support both models
+- Maximum market coverage
+- Double the operational burden
+
+---
+
+## Decision
+
+**SaaS-first in Phase 1**. Self-hosted in Phase 2 if customers ask. Full enterprise support in Phase 3.
+
+### Phase 1: SaaS Only
+- Cloud deployment (AWS, Digital Ocean, etc.)
+- Single deployment target
+- Simpler ops
+
+### Phase 2: Docker Compose
+- Docker Compose for self-hosted
+- Easy one-command setup
+- For interested design partners
+
+### Phase 3: Enterprise
+- Kubernetes support
+- Full self-hosted documentation
+- Professional support for self-hosted
+
+---
+
+## Alternatives Considered
+
+### 1. Self-Hosted from Day 1
+**Pros**: Appeals to enterprises, more control  
+**Cons**: Slow MVP, complex ops, hard to support
+
+**Verdict**: Too much overhead.
+
+### 2. SaaS Only (This Decision)
+**Pros**: Fast shipping, simpler ops, clear revenue  
+**Cons**: Blocks enterprise customers
+
+**Verdict**: Right for MVP.
+
+### 3. Both from Day 1
+**Pros**: Maximum market coverage  
+**Cons**: Double ops burden, slow shipping
+
+**Verdict**: Not ready yet.
+
+---
+
+## Rationale
+
+### ✓ MVP Speed
+One deployment target means:
+- Single infrastructure setup
+- One CI/CD pipeline
+- One set of monitoring
+- Faster to ship (focus on features, not ops)
+
+### ✓ Better Metrics
+SaaS gives us:
+- Usage data (what features are used)
+- Engagement data (how often)
+- Churn data (who leaves and why)
+- Performance data (what's slow)
+
+Self-hosted users don't share this data.
+
+### ✓ Simpler Operations
+One deployment target:
+- One database to manage
+- One cache layer
+- One backup strategy
+- One monitoring dashboard
+
+Self-hosted means:
+- Support customers' database versions
+- Support customers' infrastructure
+- Debug issues on their machines
+- Help them with backups/disaster recovery
+
+Too much for MVP.
+
+### ✓ Revenue Model
+SaaS is:
+- Recurring revenue
+- Predictable
+- Easier to forecast
+
+Self-hosted is:
+- One-time license fee
+- Unpredictable
+- Hard to maintain relationship
+
+### ✓ Customer Support
+SaaS customers:
+- We control the product they use
+- We can fix issues immediately
+- We can push updates
+
+Self-hosted customers:
+- Control their own deployment
+- Might not update
+- Harder to support
+
+### ✓ Future Flexibility
+Starting SaaS doesn't lock us in:
+- We can add self-hosted later
+- Customers who want it will ask
+- We'll have revenue to invest in ops
+- We'll understand the product better
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Faster MVP**: One deployment target
+- **Clear revenue**: SaaS is recurring
+- **Better metrics**: Understand usage
+- **Simpler ops**: Focus on features
+- **Flexibility**: Can add self-hosted later
+
+### ⚠️ Negative
+- **Blocks enterprises**: Who need self-hosted
+- **Limited market**: Can't sell to highly regulated companies yet
+- **Scale challenges**: As we grow, ops burden increases
+- **Customer objections**: Some will ask "Can I self-host?"
+
+### 🛡️ Mitigation
+- **Transparent roadmap**: Tell prospects self-hosted is coming Phase 2
+- **Design partner feedback**: Understand self-hosted demand early
+- **Plan for extraction**: Architecture supports extraction to on-prem later
+- **Build in Phase 2**: Once we validate with SaaS
+
+---
+
+## Phase 1: SaaS Architecture
+
+### Deployment
+```
+┌─────────────────────────────────────┐
+│         AWS (Single Region)         │
+├─────────────────────────────────────┤
+│  ELB (Load Balancer)                │
+│    ↓                                │
+│  EC2 (Rails Instances × 2-3)        │
+│    ↓                                │
+│  RDS (PostgreSQL)                   │
+│  ElastiCache (Redis)                │
+│  S3 (Backups, Assets)               │
+└─────────────────────────────────────┘
+```
+
+### Infrastructure
+- **Region**: Single AWS region (e.g., us-east-1)
+- **Instances**: 2-3 t3.medium instances
+- **Database**: RDS Multi-AZ
+- **Backups**: Daily automated snapshots
+- **Monitoring**: CloudWatch + Datadog
+
+### Cost
+- Estimated: $500-1000/month
+- Scales with usage
+
+---
+
+## Phase 2: Self-Hosted Support
+
+### Docker Compose Deployment
+```bash
+$ curl https://releases.averis-os.com/docker-compose.yml | sh
+$ docker-compose up
+```
+
+```yaml
+version: '3'
+services:
+  web:
+    image: averis-os/web:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@db:5432/averis_os
+      - REDIS_URL=redis://redis:6379/0
+
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+
+volumes:
+  postgres_data:
+```
+
+### Support Level
+- Community support (GitHub Issues)
+- Limited official support
+- Documentation for self-hosted setup
+- No SLA for self-hosted
+
+---
+
+## Phase 3: Enterprise Support
+
+### Full Self-Hosted Deployment
+- **Kubernetes manifests**: Full k8s deployment
+- **Terraform/CloudFormation**: IaC for AWS/GCP/Azure
+- **Enterprise docs**: Networking, SSO, SAML, LDAP
+- **Professional support**: SLA for on-prem
+
+### Pricing
+- SaaS: $500/month
+- Self-hosted: $5,000/month (includes support)
+
+---
+
+## Timeline
+
+### Phase 1 (Now - Month 3)
+- ✓ SaaS only
+- ✓ Single AWS region
+- ✓ Design partners use cloud
+
+### Phase 2 (Months 4-8)
+- Docker Compose support
+- First self-hosted customers
+- Learn deployment patterns
+
+### Phase 3 (Months 9-18)
+- Kubernetes support
+- Enterprise features (SSO, audit logs)
+- Professional support
+
+### Phase 4+ (Future)
+- Air-gap deployment (no internet required)
+- On-prem data pipeline
+- Hybrid (some data on-prem, some cloud)
+
+---
+
+## Handling Self-Hosted Requests
+
+**During Phase 1**: "We're focused on SaaS right now, but self-hosted is on the roadmap for Phase 2. Can you use cloud for now?"
+
+**If critical**: "We can explore a custom self-hosted pilot with you as a design partner."
+
+**In Phase 2**: "Docker Compose makes self-hosted easy. Here's how to get started."
+
+**In Phase 3**: "Full enterprise self-hosted support with professional SLA."
+
+---
+
+## Architectural Considerations
+
+### What Needs to Work in Both SaaS and Self-Hosted
+
+1. **Database**: PostgreSQL (works locally and cloud)
+2. **Cache**: Redis (works locally and cloud)
+3. **File storage**: S3 API compatible (AWS S3, MinIO, etc.)
+4. **Authentication**: OAuth2 (not tied to cloud)
+5. **Monitoring**: Prometheus/Grafana (works anywhere)
+6. **Logging**: ELK stack (works anywhere)
+
+### What Might Differ
+
+- **Backups**: Cloud has automated backups; self-hosted needs manual setup
+- **TLS**: Cloud uses managed certificates; self-hosted needs to provision
+- **Scaling**: Cloud auto-scales; self-hosted is manual
+- **Updates**: Cloud is automatic; self-hosted needs manual updates
+
+### Architecture Principle
+Keep application **agnostic** about where it runs. This makes both SaaS and self-hosted possible.
+
+---
+
+## Success Metrics
+
+### Phase 1 (SaaS)
+- ✓ Uptime >99%
+- ✓ <200ms response time
+- ✓ Zero security incidents
+- ✓ All design partners using cloud
+
+### Phase 2 (Docker Compose)
+- ✓ Self-hosted deployment docs working
+- ✓ <5 design partners try self-hosted
+- ✓ Community reports success
+
+### Phase 3 (Enterprise)
+- ✓ Enterprise customers want self-hosted
+- ✓ K8s manifests tested in production
+- ✓ Professional support SLA met
+
+---
+
+## Related Decisions
+
+- [ADR-003: Monorepo for Domains](./adr-003-monorepo.mdx)
+- [ROADMAP.md - Phase 2: Enterprise Deployment](../../../README.md)
+
+---
+
+## References
+
+- [The Twelve-Factor App - Deployment](https://12factor.net/config)
+- [Infrastructure as Code Best Practices](https://www.terraform.io/intro)

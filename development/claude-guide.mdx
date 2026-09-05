@@ -1,0 +1,499 @@
+---
+title: "Claude AI Collaboration Guide"
+description: "How to work with Claude AI on AverisOS development"
+---
+
+# Claude AI Collaboration Guide
+
+This guide helps you effectively collaborate with Claude AI on AverisOS development.
+
+---
+
+## Quick Context
+
+**Product**: AverisOS — AI-native operating system for software delivery  
+**Tech Stack**: Rails 7+, dry-rb, PostgreSQL, Ruby 3.2+  
+**Architecture**: Domain-Driven Design with Command/Request/Verify/Validate pattern  
+**Status**: Phase 1 MVP
+
+---
+
+## When to Use Claude
+
+### ✅ Use Claude For
+
+**New operations**: Need to implement a new Command/Request/Verify/Validate?
+```
+I'm implementing the LinkArtifacts operation in the Traceability domain.
+I need to:
+1. Create Request, Verify, Validate, Command classes
+2. Verify that artifact IDs are valid
+3. Validate that both artifacts exist and are in the same project
+4. Check for circular dependencies
+5. Command should link the artifacts and emit an event
+
+Here's my Request class:
+[paste code]
+
+Can you help me implement Verify and Validate?
+```
+
+**Refactoring**: Want to extract logic into smaller pieces?
+```
+I have a complex CreateArtifact operation that's handling too much.
+It currently:
+- Creates the artifact
+- Links to related requirements
+- Sends notifications
+- Posts to Slack
+
+I want to break this into smaller, composable pieces.
+Can you help me refactor this?
+```
+
+**Testing**: Need comprehensive test suite?
+```
+I've implemented the CreateArtifact operation but my tests are incomplete.
+Can you help me add tests for all error paths and edge cases?
+
+Here's what I have so far:
+[paste code]
+```
+
+**Documentation**: Writing guides or architecture docs?
+```
+I need to document how to add a new domain to AverisOS.
+Can you help me write a guide that covers:
+1. Directory structure
+2. Service entry point
+3. Event subscriptions
+4. Testing approach
+```
+
+**Code review**: Want feedback on an implementation?
+```
+I've implemented the impact analysis feature. Can you review it for:
+1. Adherence to DDD patterns
+2. Test coverage
+3. Error handling
+4. Performance concerns
+
+Here's the code:
+[paste code]
+```
+
+**Problem solving**: Stuck on a design issue?
+```
+I'm trying to implement transactional integrity for artifact creation
+and linking. The challenge is that if linking fails, I need to rollback
+the artifact creation. How should I handle this in the domain layer?
+```
+
+### ❌ Don't Use Claude For
+
+- Quick fixes without understanding context
+- Copy-pasting code without learning patterns
+- Large refactors without documenting decisions
+- Creating tech debt for speed
+
+---
+
+## Effective Requests
+
+### Bad Request (Vague)
+```
+Help me build LinkArtifacts
+```
+
+Why it's bad:
+- No context
+- Claude asks clarifying questions
+- Takes multiple rounds
+
+### Good Request (Specific)
+
+```
+I'm implementing LinkArtifacts operation in Traceability domain.
+
+Requirements:
+1. Link two artifacts (source → target)
+2. Verify both IDs exist and aren't the same
+3. Validate both artifacts exist and are in same project
+4. Check for circular dependencies (prevent requirement → feature → requirement)
+5. Command should create relationship and emit ArtifactsLinked event
+
+Reference [Design Principles](../architecture/design-principles.mdx) 
+for the pattern.
+
+Here's my Request class:
+```ruby
+class Request
+  attr_reader :source_id, :target_id, :relationship_type
+  
+  def initialize(source_id:, target_id:, relationship_type:)
+    @source_id = source_id
+    @target_id = target_id
+    @relationship_type = relationship_type
+  end
+end
+```
+
+Can you help me implement the Verify and Validate phases? 
+I'm especially concerned about circular dependency detection performance.
+```
+
+Why it's good:
+- Clear context about what's being built
+- Specific requirements listed
+- References architecture documents
+- Shows what you've already done
+- Asks for specific help
+
+---
+
+## Context You Should Provide
+
+When asking Claude for help, include:
+
+1. **What you're building**
+   - Domain and operation name
+   - Why this feature exists
+
+2. **Specific requirements**
+   - Input/output specs
+   - Business rules to enforce
+   - Edge cases to handle
+
+3. **Architecture references**
+   - Link to relevant ADRs
+   - Link to design principles
+   - Link to similar operations
+
+4. **What you've already done**
+   - Show your Request class
+   - Show partial implementation
+   - Show where you're stuck
+
+5. **What you're concerned about**
+   - Performance issues?
+   - Test coverage?
+   - Error handling?
+
+---
+
+## Working with Claude on Code
+
+### Scenario: Implementing a New Operation
+
+**Step 1**: Ask Claude for the overall structure
+```
+I need to implement LinkArtifacts operation.
+Requirements: [list them]
+
+Can you suggest:
+1. What to verify in the Verify phase?
+2. What to validate in the Validate phase?
+3. Any performance concerns?
+```
+
+**Step 2**: Claude suggests approach
+```
+Claude might suggest:
+- Verify: Check IDs are valid integers, relationship_type is in enum
+- Validate: Check both artifacts exist, same project, no existing relationship
+- Circular check: Use BFS to detect cycles (potentially expensive)
+```
+
+**Step 3**: You implement Verify class
+```ruby
+class Verify
+  def self.call(request)
+    # Implement based on Claude's suggestions
+  end
+end
+```
+
+**Step 4**: Ask Claude to review
+```
+I've implemented the Verify phase. Can you review for:
+- Correctness of validation rules
+- Error message clarity
+- Missing edge cases
+
+Here's my code:
+[paste code]
+```
+
+**Step 5**: Claude provides feedback
+```
+Good! A few suggestions:
+- Add check for negative IDs
+- Error message should include which ID was invalid
+- Consider extracting the enum check to a constant
+```
+
+**Step 6**: Refine and move to next phase
+```
+Great feedback. Now help me with the Validate phase...
+```
+
+---
+
+## Architecture Questions
+
+### Q: Where should I put this logic?
+
+**Ask Claude**:
+```
+I'm implementing feature X. Should this be:
+1. In the domain layer (Operation/Command)?
+2. In the controller?
+3. In a repository?
+
+The logic needs to:
+- Access the database
+- Call another domain
+- Perform calculations
+
+What's the right place and why?
+```
+
+**Claude will explain** the DDD principle and where it belongs.
+
+### Q: Should this be a new domain?
+
+**Ask Claude**:
+```
+I need to add notifications (email, Slack, webhooks).
+Should this be:
+1. A new domain (Notifications)
+2. Part of Traceability
+3. Part of a larger Communications domain
+
+How do I decide?
+```
+
+### Q: How should domains communicate?
+
+**Ask Claude**:
+```
+The Traceability domain needs to trigger email notifications.
+Should it:
+1. Call EmailService directly?
+2. Emit an event and let Email domain subscribe?
+3. Something else?
+
+What are the trade-offs?
+```
+
+---
+
+## Testing Help
+
+### Q: How do I test this operation?
+
+**Ask Claude**:
+```
+I've implemented CreateArtifact operation. How do I write tests?
+
+What should I test?
+- Verify phase: input validation
+- Validate phase: business rules
+- Command phase: side effects?
+
+Here's my code:
+[paste code]
+
+Can you show me examples of tests for each phase?
+```
+
+**Claude will provide** test examples for Verify, Validate, and Command phases.
+
+### Q: What's the right level of testing?
+
+**Ask Claude**:
+```
+I have:
+- 50 unit tests for validation rules
+- 10 integration tests for database operations
+- 2 E2E tests for full flow
+
+Is this enough? Too much? Where should I focus?
+```
+
+---
+
+## Refactoring Questions
+
+### Q: Should I extract this into a helper?
+
+**Ask Claude**:
+```
+I have this logic repeated in 3 operations:
+[paste code]
+
+Should I extract it? If yes, where should it live?
+```
+
+### Q: How do I refactor fat code?
+
+**Ask Claude**:
+```
+My CreateArtifact::Command is doing too much:
+1. Creating artifact
+2. Checking linked requirements
+3. Sending notification
+4. Posting to Slack
+
+How should I break this up while maintaining atomicity?
+```
+
+---
+
+## Common Patterns
+
+### When to Ask About Patterns
+
+```
+I need to implement bulk artifact creation (create multiple at once).
+
+Should I:
+1. Have one Command that loops and creates multiple?
+2. Have one Command call LinkArtifacts command multiple times?
+3. Something else?
+
+Here's what I'm thinking:
+[describe approach]
+```
+
+Claude can show you pattern for composing operations.
+
+---
+
+## Preferred Requests Format
+
+### Best Structure
+
+```markdown
+# [Feature Name]
+
+## Context
+[Why are we building this? What problem does it solve?]
+
+## Requirements
+1. [Requirement 1]
+2. [Requirement 2]
+3. [Requirement 3]
+
+## Architecture References
+- [ADR-001: Domain-Driven Design](../decisions/adr-001-ddd.mdx)
+- [Design Principles](../architecture/design-principles.mdx)
+- Similar operation: [LinkArtifacts](../domains/traceability.md#link-artifacts)
+
+## What I've Done
+[Code for Request class]
+
+## What I'm Stuck On
+[Specific question about Verify/Validate/Command]
+
+## Concerns
+- Performance: Circular dependency detection
+- Edge cases: Self-linking?
+- Testing: How to test circular dependency?
+```
+
+---
+
+## Tips for Best Results
+
+1. **Be specific**: "Help with Verify phase" vs. "Help me build LinkArtifacts"
+
+2. **Show your thinking**: Paste code you've written, not just the ask
+
+3. **Ask for trade-offs**: "What are the pros/cons of approach A vs B?"
+
+4. **Reference docs**: Link to architecture docs, ADRs, related code
+
+5. **Include constraints**: "This needs to be <100ms", "Must support concurrent updates"
+
+6. **Ask follow-ups**: "Can you explain why that's a better approach?"
+
+---
+
+## When You Disagree with Claude
+
+That's great! The codebase is yours.
+
+1. **Ask for rationale**: "Why would that approach be better?"
+2. **Explain your constraints**: "We have a different requirement because..."
+3. **Update CLAUDE.md**: If the guide was unclear, improve it
+
+Good example:
+```
+Claude suggested using X pattern, but our constraint is Y,
+so we should use Z pattern instead. Can you explain the difference?
+```
+
+---
+
+## Using Claude to Debug
+
+### Debugging Code
+
+```
+This test is failing:
+[paste test]
+
+Expected: [what you expected]
+Actual: [error message]
+
+I think the problem is [your hypothesis]
+
+Can you help me debug?
+```
+
+### Debugging Architecture
+
+```
+I'm trying to implement transactional artifact creation + linking,
+but I'm concerned about data consistency.
+
+If artifact creation succeeds but linking fails:
+- Should I rollback the artifact? (Seems right)
+- But then how do I communicate this to the user?
+- And how do I emit the right events?
+
+Can you walk through this scenario?
+```
+
+---
+
+## Updating This Guide
+
+If this guide is unclear or missing something:
+
+1. Create an issue: "CLAUDE.md needs clarification on X"
+2. Propose a change
+3. Submit a PR
+
+Keep this guide updated so future Claude sessions are more effective!
+
+---
+
+## Summary
+
+**Great Claude collaboration**:
+- Specific requests
+- Clear context
+- Architecture references
+- Show your work
+- Ask for trade-offs
+- Iterate together
+
+**Questions?**
+- Check [ARCHITECTURE.md](../architecture/overview.mdx)
+- Read [Design Principles](../architecture/design-principles.mdx)
+- Look at [Patterns & Examples](../architecture/patterns.mdx)
+- Review relevant [ADRs](../decisions/)
+
+Let's build something great together! 🚀

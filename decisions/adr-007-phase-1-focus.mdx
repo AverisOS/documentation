@@ -1,0 +1,248 @@
+---
+title: "ADR-007: Phase 1 Focus - Traceability Graph Over AI"
+description: "Architecture Decision Record - MVP scope and AI strategy"
+---
+
+# ADR-007: Phase 1 Focus - Traceability Graph Over AI
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+AverisOS is about "AI-native software delivery." Should Phase 1 (MVP) include heavy AI integration using LLMs?
+
+### Option 1: Heavy AI in Phase 1
+- Use OpenAI/Claude API for intelligent artifact linking
+- Train models to understand requirements and code
+- Advanced natural language processing
+
+### Option 2: Focus on Traceability First
+- Manual and heuristic-based artifact linking
+- Simple pattern matching (commit messages, PR descriptions)
+- Prove core value proposition first
+- Add AI in Phase 2+ with cost optimization
+
+---
+
+## Decision
+
+**Focus on core traceability graph in Phase 1**. Minimal/no heavy LLM usage.
+
+### Phase 1 Strategy
+- Build reliable traceability system with manual + heuristic linking
+- Validate that the core problem (artifact traceability) is real
+- Use simple heuristics: regex patterns, fuzzy string matching
+- **No API calls to OpenAI/Anthropic** to keep costs down
+- Prove users want the product before investing in AI
+
+### Phase 2 Strategy
+- Add open-source models (Ollama, local LLMs)
+- Cost-conscious APIs (OpenRouter, Together)
+- Train on customer data (with consent)
+- Incremental AI features
+
+---
+
+## Alternatives Considered
+
+### 1. Heavy AI from Day 1
+**Pros**: "AI-native" from start, impressive demo, cutting-edge  
+**Cons**: High costs ($1k+/month per customer), unpredictable output quality, overkill for validation
+
+**Verdict**: Premature optimization.
+
+### 2. Heuristics Only (This Decision)
+**Pros**: Cheap, predictable, validates core idea  
+**Cons**: Less intelligent features, requires manual work initially
+
+**Verdict**: Right for MVP.
+
+### 3. Open-Source Models
+**Pros**: Free, no vendor lock-in, good privacy  
+**Cons**: Require compute, setup complexity, lower quality than commercial models
+
+**Verdict**: Perfect for Phase 2.
+
+---
+
+## Rationale
+
+### ✓ Cost Control
+OpenAI pricing is expensive:
+- GPT-4: $0.03/1K input tokens, $0.06/1K output tokens
+- At 1000 customers × 10 requests/month = $3,000-$6,000/month
+- For MVP with 5-10 design partners: acceptable
+- At scale: unsustainable without revenue to cover
+
+Solution: Prove value first, add AI second.
+
+### ✓ Speed
+Heuristics are **much faster** than LLM calls:
+- LLM latency: 1-5 seconds per request
+- Regex pattern: 10ms
+- For interactive UX, speed matters
+
+Plus, simpler code = faster shipping.
+
+### ✓ Predictability
+Heuristics are deterministic:
+- Same input = same output
+- Easy to test
+- Easy to debug
+- Easy to explain to users
+
+LLMs are probabilistic:
+- Same input might give different output
+- Hard to test
+- Hard to debug
+- Hard to explain
+
+### ✓ Validation
+Focus on core value proposition:
+
+**"Can we help users trace artifacts across their software delivery?"**
+
+Before we ask:
+**"Can AI make that even better?"**
+
+Heuristics are good enough to validate the core idea.
+
+### ✓ Future Flexibility
+Building without AI first means:
+- No vendor lock-in (could switch from Claude to GPT-4)
+- No sunk cost in prompt engineering
+- Can choose best model when adding AI
+- Can evaluate ROI against revenue
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Lower cost**: Keep burn rate low during MVP
+- **Faster shipping**: No AI infrastructure setup
+- **Predictable behavior**: Users know what to expect
+- **Validates hypothesis**: Proves traceability idea works
+- **Flexible future**: Can choose best AI strategy later
+
+### ⚠️ Negative
+- **Less impressive features**: No "AI magic"
+- **Manual linking**: Some users need to help the system
+- **Lower accuracy**: Heuristics miss some relationships
+- **Slower linking**: Regex matching is less smart
+
+### 🛡️ Mitigation
+- **Good UI for manual linking**: Make it easy for users
+- **Clear feedback**: Show why we linked (or didn't link) artifacts
+- **Roadmap transparency**: Communicate that AI is coming
+- **User education**: Help users understand heuristic matching
+
+---
+
+## What This Means for Phase 1
+
+### What We Build
+1. **Core traceability graph**:
+   - Create artifacts (requirements, code, tests, etc.)
+   - Link artifacts manually
+   - View artifact relationships
+   - Impact analysis (what breaks if this changes?)
+
+2. **Simple heuristics**:
+   - Commit message matching: "Fixes requirement #123"
+   - Pull request description parsing
+   - File name/content patterns
+   - Fuzzy string matching
+
+3. **Manual linking UI**:
+   - "Link this artifact to..."
+   - Suggested matches (from heuristics)
+   - One-click linking
+   - Undo/editing
+
+### What We DON'T Build
+- ❌ ML models trained on requirements
+- ❌ Natural language understanding
+- ❌ OpenAI/Claude API calls
+- ❌ Intelligent artifact classification
+- ❌ Automatic test-to-requirement mapping
+
+### Example Heuristic
+```ruby
+# Match commit messages to requirements
+class CommitArtifactMatcher
+  # Matches: "Fixes #123", "closes requirement-123", etc.
+  PATTERNS = [
+    /[Ff]ixes? (?:requirement-?|#)(\d+)/,
+    /[Cc]loses? (?:requirement-?|#)(\d+)/,
+    /[Rr]elates? to (?:requirement-?|#)(\d+)/
+  ]
+
+  def find_related_artifacts(commit_message)
+    matches = PATTERNS.flat_map do |pattern|
+      commit_message.scan(pattern).map(&:first).map(&:to_i)
+    end
+
+    # Find artifacts by ID
+    Artifact.where(id: matches)
+  end
+end
+```
+
+Simple, predictable, works.
+
+---
+
+## Timeline for AI Addition
+
+### Phase 2 (Months 4-8): Local AI
+- Deploy Ollama locally
+- Fine-tune on customer data
+- No API costs
+- Users can run locally
+
+### Phase 3 (Months 9-18): Cloud AI
+- OpenRouter or Together for inference
+- More sophisticated models
+- Better linking accuracy
+- Cost-effective at scale
+
+### Phase 4+ (Future): Custom Models
+- Fine-tune on AverisOS user data
+- Proprietary models
+- Competitive advantage
+
+---
+
+## Measuring Success Without AI
+
+How do we know traceability is valuable without AI?
+
+**Design partner questions**:
+- How much time would manual linking save you?
+- How much would automated linking help?
+- Would you pay for this?
+
+**MVP metrics** (Phase 1):
+- ✓ Design partners successfully use manual linking
+- ✓ Impact analysis helps them understand changes
+- ✓ They ask for automation (signal for Phase 2)
+
+---
+
+## Related Decisions
+
+- [ROADMAP.md - Phase 1: Core MVP](../../../README.md) — Timeline and deliverables
+- [ROADMAP.md - Phase 2: AI Enhancement](../../../README.md) — When AI is added
+
+---
+
+## References
+
+- [ROADMAP.md Phase 1](../../../README.md)
+- Lean Startup principles: validate hypothesis with MVP
+- Cost control: Prove business model before investing heavily

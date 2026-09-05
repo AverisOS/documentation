@@ -1,0 +1,232 @@
+---
+title: "ADR-001: Domain-Driven Design with Rails + dry-rb"
+description: "Architecture Decision Record - Core architectural pattern choice"
+---
+
+# ADR-001: Domain-Driven Design with Rails + dry-rb
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+We're building AverisOS, a complex system that spans multiple sub-domains:
+- **Authentication**: User registration, login, permissions
+- **Traceability**: Artifact management and relationship tracking
+- **Git Integration**: Syncing commits, detecting related artifacts
+- **Testing**: Recording test runs, linking tests to requirements
+- **Email**: Notifications, alerts, digests
+
+Traditional Rails MVC architecture tends toward "fat models" where:
+- Business logic leaks into ActiveRecord models
+- Controllers become mediators between HTTP and database
+- Cross-cutting concerns (logging, caching, transactions) scatter throughout
+- Testing requires extensive mocking and database setup
+- Tight coupling makes extraction to services later very expensive
+
+We need a structure that:
+- Keeps business logic **explicit and testable**
+- Separates **infrastructure** (Rails/database) from **domain logic**
+- Allows **domains to evolve independently**
+- Enables **future extraction** to microservices
+
+---
+
+## Decision
+
+Adopt **Domain-Driven Design (DDD)** with Rails as the infrastructure layer:
+
+- **Models**: Thin, persistence-only (just associations and validations)
+- **Controllers**: Routing and HTTP concerns only (no business logic)
+- **Domain Layer**: Command/Request/Verify/Validate pattern with dry-rb
+- **Dependency Injection**: All dependencies explicitly injected (via dry-container)
+- **Error Handling**: Result monad (success/failure, no exceptions)
+- **Communication**: Events for cross-domain communication (loose coupling)
+
+---
+
+## Alternatives Considered
+
+### 1. Traditional Rails MVC
+**Pros**: Familiar, quick to start, Rails conventions work well  
+**Cons**: Fat models, hard to test, tight coupling, difficult to extract services later
+
+**Verdict**: Too simplistic for a product with multiple domains and complex business logic.
+
+### 2. Microservices from Day 1
+**Pros**: Clear separation, independent scaling, clear team ownership  
+**Cons**: Over-engineered for MVP, slower shipping, adds operational complexity
+
+**Verdict**: Great long-term, but unnecessary for Phase 1 when we're still validating the product.
+
+### 3. Event Sourcing
+**Pros**: Perfect audit trail, full event history, temporal queries  
+**Cons**: Adds significant complexity, overkill for MVP phase
+
+**Verdict**: Good for Phase 2+, but not for initial validation.
+
+### 4. GraphQL
+**Pros**: Flexible queries, good for complex data, popular in modern apps  
+**Cons**: Adds complexity, requires more upfront design, REST is sufficient for Phase 1
+
+**Verdict**: Can add GraphQL later as a layer on top of REST APIs.
+
+---
+
+## Rationale
+
+### ✓ Scalability
+DDD structure with clear domain boundaries makes it straightforward to extract domains to microservices in Phase 3. We're building the structure for eventual scale from day one.
+
+### ✓ Testability
+Each layer (Verify, Validate, Command) is testable independently:
+- **Verify tests** require no database, no mocks
+- **Validate tests** use database but are focused on data validation
+- **Command tests** are end-to-end but have high confidence of success
+
+This means faster test suites and easier debugging.
+
+### ✓ Maintainability
+Business logic is **explicit and central**, not hidden in model callbacks or controller before_actions. New engineers can understand the system by reading domain services.
+
+### ✓ Flexibility
+By keeping domain logic separate from Rails infrastructure, we can:
+- Swap authentication approaches without touching domain logic
+- Change database without rewriting business logic
+- Add new domains without modifying existing ones
+- Test domains without spinning up Rails
+
+### ✓ Team Cognition
+Clear structure helps team members:
+- Understand where business logic lives (domain services)
+- Know where to put new features (in the right domain)
+- See how domains communicate (via events)
+- Find where to write tests (at the right level)
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Clear separation of concerns**: Infrastructure doesn't leak into business logic
+- **Easy testing**: Each layer tested independently with minimal setup
+- **Future-proof**: Extraction to microservices is straightforward
+- **Team scaling**: New engineers can onboard faster with clear structure
+- **Business agility**: Business rules are explicit and easy to change
+
+### ⚠️ Negative
+- **More boilerplate early on**: Request/Verify/Validate/Command for each operation
+- **Steeper learning curve**: Rails developers need to learn DDD patterns
+- **More files**: Each operation has multiple files instead of one method
+- **Overhead for simple CRUD**: Four-phase pattern might feel heavy for trivial operations
+
+### 🛡️ Mitigation
+- Provide extensive [architecture guide](../architecture/overview.mdx) and examples
+- Share common patterns as generators (soon)
+- Start with simple operations and add complexity as needed
+- Emphasize that the pattern prevents bugs and reduces testing time
+
+---
+
+## Implementation Details
+
+### Request/Verify/Validate/Command Pattern
+
+```ruby
+# 1. Request - Input struct
+module Traceability
+  module CreateArtifact
+    class Request
+      attr_reader :project_id, :type, :title, :owner_id
+    end
+  end
+end
+
+# 2. Verify - Format validation (no DB)
+class Verify
+  def self.call(request)
+    return Shared::Result.failure("Title is required") if request.title.blank?
+    return Shared::Result.failure("Title max 500 chars") if request.title.length > 500
+    Shared::Result.success(request)
+  end
+end
+
+# 3. Validate - Semantic validation (with DB)
+class Validate
+  def initialize(project_repository:)
+    @project_repository = project_repository
+  end
+
+  def call(request)
+    return Shared::Result.failure("Project not found") unless @project_repository.find(request.project_id)
+    Shared::Result.success(request)
+  end
+end
+
+# 4. Command - Execute operation
+class Command
+  def initialize(artifact_repository:, event_dispatcher:)
+    @artifact_repository = artifact_repository
+    @event_dispatcher = event_dispatcher
+  end
+
+  def call(request)
+    artifact = @artifact_repository.create(request.to_h)
+    @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+    Shared::Result.success(artifact)
+  end
+end
+```
+
+### Result Monad
+```ruby
+result = service.create_artifact(...)
+
+if result.success?
+  render json: result.value, status: 201
+else
+  render json: { error: result.error }, status: 422
+end
+
+# Chainable
+result.and_then { |artifact| link_to_requirement(artifact) }
+      .map { |artifact| serialize(artifact) }
+      .match { |r| r.success? ? render_success(r.value) : render_error(r.error) }
+```
+
+### Dependency Injection
+```ruby
+# All dependencies explicit
+class Command
+  def initialize(artifact_repo:, user_repo:, event_dispatcher:)
+    @artifact_repo = artifact_repo
+    @user_repo = user_repo
+    @event_dispatcher = event_dispatcher
+  end
+
+  def call(request)
+    user = @user_repo.find(request.user_id)
+    artifact = @artifact_repo.create(...)
+    @event_dispatcher.dispatch(ArtifactCreated.new(...))
+  end
+end
+```
+
+---
+
+## Related Decisions
+
+- [ADR-002: Result Monad Instead of Exceptions](./adr-002-result-monad.mdx)
+- [ADR-005: Dry-rb for Validation and Types](./adr-005-dry-rb.mdx)
+- [ADR-006: Event Dispatcher for Cross-Domain Communication](./adr-006-event-dispatcher.mdx)
+
+---
+
+## References
+
+- [ARCHITECTURE.md](../architecture/overview.mdx) — Full technical guide
+- [Design Principles](../architecture/design-principles.mdx) — Why we organize code this way
+- [Patterns & Examples](../architecture/patterns.mdx) — Common implementation patterns

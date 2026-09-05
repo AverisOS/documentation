@@ -1,0 +1,297 @@
+---
+title: "ADR-009: Design Partner Program Over Public Beta"
+description: "Architecture Decision Record - MVP validation strategy"
+---
+
+# ADR-009: Design Partner Program Over Public Beta
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+How should we validate the AverisOS MVP? Public beta or closed design partner program?
+
+### Public Beta
+- Open to anyone
+- Lots of feedback
+- Viral potential
+
+### Design Partner Program
+- 5-10 carefully selected customers
+- Deep relationship
+- Actionable feedback
+
+---
+
+## Decision
+
+**Design Partner Program**:
+
+- Target 5-10 carefully selected companies in Phase 1
+- Weekly 1:1 check-ins with each partner
+- Feedback directly influences Phase 2 roadmap
+- Convert design partners to paying customers early
+
+---
+
+## Alternatives Considered
+
+### 1. Public Beta
+**Pros**: Large audience, viral potential, lots of feedback  
+**Cons**: Noisy feedback, hard to prioritize, surface-level insights
+
+**Verdict**: Too chaotic for MVP learning.
+
+### 2. Design Partner Program (This Decision)
+**Pros**: Deep feedback, validation, early revenue, relationships  
+**Cons**: Smaller sample size, might miss broader market signals
+
+**Verdict**: Right balance.
+
+### 3. Stealth (No external feedback)
+**Pros**: Perfect product before sharing  
+**Cons**: Miss market signals, slow validation, risk building wrong thing
+
+**Verdict**: Too risky.
+
+---
+
+## Rationale
+
+### ✓ Quality Feedback
+Design partners give **deep, actionable feedback**:
+- Why they use (or don't use) features
+- How they integrate into workflows
+- What's blocking adoption
+- What competitive features matter
+
+Public beta gives:
+- "Doesn't work" with no context
+- Feature requests without understanding why
+- Low engagement (most don't come back)
+
+### ✓ Validation
+Design partners are **early customers**:
+- Willing to pay (or commit to paying)
+- Serious about solving problem
+- Will give honest feedback
+- Will champion product to others
+
+Public beta users are:
+- Free riders
+- May not need problem solved
+- No commitment
+- Churn is high
+
+### ✓ Revenue
+Convert design partners to paying customers early:
+- Already invested in success
+- Know the product works for them
+- Easier sales conversation
+- Faster path to revenue
+
+### ✓ Relationships
+Build **relationships that scale**:
+- Design partners become customers
+- Customers become advocates
+- Advocates refer more customers
+- Each relationship is deep, not broad
+
+### ✓ Focus
+Work with 5-10 companies means:
+- Know their pain points intimately
+- Understand their workflows
+- Can customize features
+- Can support them properly
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **High-quality feedback**: Actionable, deep insights
+- **Fast validation**: Know if product works in weeks, not months
+- **Early revenue**: Design partners convert faster
+- **Better roadmap**: Build what customers actually need
+- **Relationships**: Turn partners into advocates
+
+### ⚠️ Negative
+- **Limited sample size**: Might miss broader market signals
+- **Selection bias**: Choose partners similar to us
+- **Slower growth**: Not hundreds of users testing
+- **Higher touch**: Need time for 1:1s
+- **Risk**: What if all partners are similar to each other?
+
+### 🛡️ Mitigation
+- **Diverse selection**: Choose partners from different industries/company sizes
+- **Regular customer interviews**: Talk to non-partners too
+- **Quantitative metrics**: Track usage data alongside feedback
+- **Public launch plan**: Transition to public beta in Phase 2
+
+---
+
+## Design Partner Selection
+
+### Ideal Design Partner Profile
+- ✓ Uses our target platform (GitHub, GitLab, Jira, etc.)
+- ✓ Team size 10-100 people (not too small, not massive enterprises)
+- ✓ Tech-forward company
+- ✓ Values quality over speed
+- ✓ Willing to give regular feedback
+- ✓ Willing to be case study (eventually)
+- ✓ Non-competing (not building similar product)
+
+### Industries to Target (Phase 1)
+1. **B2B SaaS companies**
+   - Already use GitHub, Jira, CI/CD
+   - Care about delivery speed
+   - Have clear feature-to-requirements traceability needs
+
+2. **Fortune 500 software teams**
+   - Compliance/audit requirements
+   - Large teams (need artifacts)
+   - Budget for tools
+
+3. **Open-source projects**
+   - Community-driven
+   - Issues + PRs already exist
+   - Natural traceability need
+
+### Recruitment Channels
+1. **Warm introductions** (through founders' network)
+2. **Industry conferences** (find leads, invite to try)
+3. **LinkedIn outreach** (to engineering leads)
+4. **Community partnerships** (open-source foundations)
+5. **Content marketing** (write about traceability problem)
+
+---
+
+## Design Partner Program Structure
+
+### Phase 1A: Recruitment (Months 1-2)
+- Target 5-10 companies
+- 1-hour initial conversation
+- Sign NDA + design partner agreement
+- Set up shared Slack channel
+
+### Phase 1B: Development (Months 1-3)
+- **Weekly 1:1s**: 30 min syncs with each partner
+- **Office hours**: Open Slack/Zoom for questions
+- **Monthly all-hands**: All partners together for roadmap discussion
+- **Early access**: Partners use beta software before public
+- **Bug bounty program**: Small rewards for bug reports
+
+### Phase 1C: Transition (Month 3)
+- **Roadmap feedback**: What do they want in Phase 2?
+- **Pricing feedback**: What would they pay?
+- **Case study**: Can we feature them?
+- **Convert to customers**: Transition from partner to paying customer
+
+---
+
+## Design Partner Agreement
+
+```
+DESIGN PARTNER AGREEMENT
+
+1. Confidentiality
+   - Keep AverisOS roadmap confidential
+   - No public discussions until Phase 2 launch
+
+2. Regular Feedback
+   - Weekly 30-min sync calls
+   - Monthly written feedback
+
+3. Honesty
+   - Tell us what's working and what's not
+   - No polite feedback; we need honest critique
+
+4. Case Study (Optional)
+   - May feature in marketing
+   - Your team name and logo (public)
+   - Story of how AverisOS helped (you review)
+
+5. Transition
+   - At end of Phase 1, become customer or graduate program
+   - No obligation to pay, but we'll offer special pricing
+
+6. Mutual NDA
+   - Protect both parties' confidentiality
+```
+
+---
+
+## Success Metrics
+
+### Recruitment
+- ✓ 5-10 partners recruited by end Month 1
+- ✓ Partners from 3+ different industries
+- ✓ Mix of company sizes
+
+### Engagement
+- ✓ >80% attendance at weekly 1:1s
+- ✓ Written feedback from all partners
+- ✓ Active Slack engagement
+
+### Learning
+- ✓ Document 20+ feature requests
+- ✓ Identify top 3 pain points
+- ✓ Test 5+ hypotheses about usage
+
+### Conversion
+- ✓ Convert 3+ partners to paying customers
+- ✓ Collect testimonials/quotes from all partners
+- ✓ 2-3 case studies written
+
+### Transition
+- ✓ Clear roadmap for Phase 2 based on feedback
+- ✓ Product-market fit signals (partners want more)
+
+---
+
+## Logistics
+
+### Time Commitment
+- **Per week**: ~2-3 hours (syncs + Slack)
+- **Per month**: ~4 hours (planning, retrospectives)
+- **Total**: ~10 hours/week for founder/PM
+
+### Tools
+- **Communication**: Slack (for async updates)
+- **Calls**: Zoom (recorded with permission)
+- **Feedback**: Google Form (quantitative) + Slack (qualitative)
+- **Tracking**: Notion/GitHub (manage feedback pipeline)
+
+### Compensation
+- **Free access** to AverisOS during Phase 1
+- **Special pricing** if they convert to customers (30-50% discount)
+- **Public recognition** (logo on website)
+- **Earlier access** to new features
+
+---
+
+## Transition to Phase 2 (Public Launch)
+
+At end of Phase 1:
+1. **Launch to public**: Make available to anyone
+2. **Design partners graduate**: Move to normal customers
+3. **Keep relationships**: They're now advocates
+4. **Learn from scale**: How does product work with 100+ users?
+
+---
+
+## Related Decisions
+
+- [ROADMAP.md - Phase 1: Design Partner Program](../../../README.md)
+- [BUSINESS_MODEL.md - Go-to-Market](../../../README.md)
+
+---
+
+## References
+
+- [The Lean Startup - Validation](https://www.oreilly.com/library/view/the-lean-startup/9780307887894/)
+- [Design Partners Best Practices](https://www.ycombinator.com/library/4g-how-to-do-design-partner-meetings)

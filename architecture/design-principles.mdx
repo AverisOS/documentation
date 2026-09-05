@@ -1,0 +1,316 @@
+---
+title: "Design Principles"
+description: "Core architectural principles guiding AverisOS development"
+---
+
+# Design Principles
+
+AverisOS is built on a set of core architectural principles that prioritize clarity, testability, and maintainability. These principles guide every decision we make.
+
+## 1. Business Logic is First-Class Citizen
+
+Business logic lives in domain services and operations, **not** in models or controllers.
+
+**Why**: This keeps business rules explicit, testable, and separate from infrastructure concerns like HTTP or database access.
+
+### ❌ Wrong: Logic in model
+```ruby
+class Artifact < ApplicationRecord
+  def create_and_link_to_requirement(requirement)
+    self.requirements << requirement
+    save!
+  end
+end
+```
+
+### ✓ Right: Logic in domain operation
+```ruby
+module Traceability
+  module LinkArtifacts
+    class Command
+      def call(request)
+        # Link logic here
+        @repository.link(source, target)
+      end
+    end
+  end
+end
+```
+
+---
+
+## 2. Models Are Thin
+
+Models should **only** contain:
+- Associations
+- Basic validations
+- Enum definitions
+- Scope definitions
+
+**No business logic. No complex calculations. No service calls.**
+
+### ✓ Correct Model
+```ruby
+class Artifact < ApplicationRecord
+  belongs_to :project
+  belongs_to :owner, class_name: 'User'
+  has_many :relationships
+
+  validates :title, presence: true, length: { maximum: 500 }
+  validates :type, inclusion: { in: VALID_TYPES }
+
+  enum status: { draft: 0, active: 1, archived: 2 }
+end
+```
+
+---
+
+## 3. Controllers Route & Serialize Only
+
+Controllers have exactly three responsibilities:
+1. Extract parameters from request
+2. Call domain service
+3. Serialize response and return HTTP response
+
+**No business logic. Period.**
+
+### ✓ Correct Controller
+```ruby
+class ArtifactsController < ApplicationController
+  def create
+    service = AverisOS::Container['domains.traceability']
+    result = service.create_artifact(
+      project_id: params[:project_id],
+      type: params[:type],
+      title: params[:title],
+      owner_id: current_user.id
+    )
+
+    if result.success?
+      render json: { data: serialize(result.value) }, status: 201
+    else
+      render json: { error: result.error }, status: 422
+    end
+  end
+end
+```
+
+---
+
+## 4. All Dependencies Injected
+
+No `new` calls. No global state. No hidden dependencies.
+
+### ❌ Wrong: Hidden dependencies
+```ruby
+class Command
+  def call(request)
+    user = User.find(request.user_id)  # Hidden dependency on User
+    artifact = @repository.create(...)  # Where did @repository come from?
+  end
+end
+```
+
+### ✓ Right: All dependencies explicit
+```ruby
+class Command
+  def initialize(user_repository:, artifact_repository:)
+    @user_repository = user_repository
+    @artifact_repository = artifact_repository
+  end
+
+  def call(request)
+    user = @user_repository.find(request.user_id)
+    artifact = @artifact_repository.create(...)
+  end
+end
+```
+
+---
+
+## 5. Result Monad for Error Handling
+
+Never raise exceptions for **expected** errors. Use Result monad instead.
+
+### ❌ Wrong: Exceptions for expected errors
+```ruby
+def call(request)
+  raise "Project not found" if project.nil?
+  raise "Invalid type" unless valid_type?(type)
+end
+```
+
+### ✓ Right: Result monad
+```ruby
+def call(request)
+  return Shared::Result.failure("Project not found") if project.nil?
+  return Shared::Result.failure("Invalid type") unless valid_type?(type)
+  Shared::Result.success(artifact)
+end
+```
+
+**Benefits**:
+- Error paths are **visible** in code
+- Operations are **composable** with `and_then`, `map`, etc.
+- **No performance overhead** from exception handling
+- **Easy to test** both success and failure paths
+
+---
+
+## 6. Four-Phase Operations
+
+Every operation has four clear phases:
+
+1. **Request**: Input struct with parameters
+2. **Verify**: Syntax/format validation (**no DB**)
+3. **Validate**: Semantic validation (**with DB**, prefetch data)
+4. **Command**: Execute operation (**idempotent**)
+
+Each phase should be testable **independently**.
+
+### Structure
+```ruby
+module Traceability
+  module CreateArtifact
+    class Request
+      attr_reader :project_id, :type, :title, :owner_id
+    end
+
+    class Verify
+      def self.call(request)
+        # Check syntax: title not blank, type valid, etc.
+        # NO database access
+      end
+    end
+
+    class Validate
+      def call(request)
+        # Check semantics: project exists, user exists, etc.
+        # Can prefetch data for Command
+      end
+    end
+
+    class Command
+      def call(request)
+        # Execute: create artifact, emit events
+        # Should have high confidence of success here
+      end
+    end
+  end
+end
+```
+
+---
+
+## 7. Events for Cross-Domain Communication
+
+Domains communicate via **events**, not direct calls.
+
+### ❌ Wrong: Tight coupling
+```ruby
+class CreateArtifact::Command
+  def call(request)
+    artifact = create_artifact(request)
+    EmailService.new.notify_watchers(artifact)  # Direct call!
+    Slack.new.post(artifact)                    # Direct call!
+  end
+end
+```
+
+### ✓ Right: Loose coupling
+```ruby
+class CreateArtifact::Command
+  def call(request)
+    artifact = create_artifact(request)
+    @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+    Shared::Result.success(artifact)
+  end
+end
+
+# Email service subscribes independently
+class EmailService
+  def initialize(event_dispatcher:)
+    event_dispatcher.subscribe(ArtifactCreated) { |event| notify(event) }
+  end
+end
+```
+
+**Benefits**:
+- Domains don't know about each other
+- Easy to add new subscribers without modifying domain
+- Future extraction to separate services is straightforward
+- Clear audit trail of all domain events
+
+---
+
+## 8. Fail Fast, Fail Clearly
+
+When something will fail, fail **early** and with **clear error messages**.
+
+### ❌ Wrong: Vague errors
+```ruby
+Shared::Result.failure("Error")
+Shared::Result.failure("Invalid")
+```
+
+### ✓ Right: Specific, actionable errors
+```ruby
+Shared::Result.failure("Title is required (max 500 characters)")
+Shared::Result.failure("Project not found (ID: #{request.project_id})")
+Shared::Result.failure("User is not authorized to access this project")
+```
+
+---
+
+## 9. Prefer Code Clarity Over Comments
+
+Comments should explain **WHY**, not **WHAT**. Code should be clear enough to explain itself.
+
+### ❌ Wrong
+```ruby
+def call(request)
+  # Loop through artifacts
+  artifacts.each { |a| ... }
+  # Check if valid
+  validate(artifact)
+end
+```
+
+### ✓ Right
+```ruby
+def call(request)
+  # Prefetch related artifacts to avoid N+1 queries in subsequent operations
+  artifacts.each { |a| ... }
+
+  # Validate that the artifact type matches project's allowed types
+  # (not just syntax validation in Verify phase)
+  validate(artifact)
+end
+```
+
+---
+
+## 10. Optimize for Change
+
+Design systems so they can evolve without breaking existing code.
+
+**Strategies**:
+- Use adapters/interfaces for external services
+- Keep domain logic separate from infrastructure
+- Use feature flags for gradual rollouts
+- Version APIs for backward compatibility
+- Use events instead of direct calls
+
+---
+
+## Summary
+
+These principles work together to create a system that is:
+
+- **Clear**: Business logic is explicit and centered
+- **Testable**: Each layer can be tested independently
+- **Maintainable**: Changes are localized to the right place
+- **Extensible**: New features don't require modifying existing code
+- **Scalable**: Domains can be extracted to separate services
+
+When in doubt, ask: "Does this principle support these goals?"

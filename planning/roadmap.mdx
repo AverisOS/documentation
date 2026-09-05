@@ -1,245 +1,417 @@
 ---
-title: Product Roadmap
-description: 18-month roadmap with phases, deliverables, and metrics
+title: "Product Roadmap"
+description: "18-month product vision and delivery timeline"
 ---
 
-# Product Roadmap
+# AverisOS Roadmap
 
-**AverisOS 18-Month Roadmap**
+An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Market Fit (Phase 2), and Enterprise Scale (Phase 3).
 
-Organized into three phases: MVP validation, market fit, and enterprise scale.
+---
 
-## Phase 1: Core MVP (Months 1-3)
+## Phase 1: MVP & Validation (Months 1-6)
 
-**Goal:** Build the foundational traceability graph and prove engineers value connected artifacts.
+**Goal**: Build core traceability, validate problem-solution fit with design partners
 
-**Team:** 2-4 people  
-**Budget:** $30-50k  
-**Success Metric:** 5+ design partners, core features working, strong NPS
+**Timeline**: Now through Month 6 (6 months)
 
-### Deliverables
+### Phase 1 Deliverables
 
-#### 1.1 Core Data Model & API
-- Flexible artifact types (Requirement, Feature, Task, Code, Test, Release)
-- Relationship engine (links artifacts, auto-detects related items)
-- REST API for CRUD on artifacts
-- PostgreSQL as backing store
+#### M1-2: Foundation & Core Traceability
+- **Artifact Management**
+  - Create/read/update artifacts (requirements, features, code, tests, releases)
+  - Rich metadata: title, description, type, owner, status, timeline
+  - Archive vs. delete (preserve history)
+  - Basic search and filtering
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: 100+ artifacts in design partner projects
 
-**Acceptance Criteria:**
-- Create/read/update/delete artifacts
-- Link artifacts with relationships
-- Query relationships (e.g., "what tests validate this requirement?")
-- Support up to 100k artifacts without performance degradation
+- **Relationship Linking**
+  - Manual artifact linking (UI + API)
+  - Relationship types: implements, validates, depends_on, related_to, blocks
+  - Bidirectional relationships (A→B shows B←A)
+  - Relationship metadata (created_at, created_by, notes)
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: 50+ relationships per design partner
 
-#### 1.2 Web Dashboard (Basic)
-- Artifact browser: List, search, filter artifacts
-- Relationship viewer: Visual graph showing connections
-- Create/edit UI: Forms for new artifacts
-- Project workspace: Multi-project support
+- **Project Management**
+  - Create projects
+  - Invite team members
+  - Role-based access (admin, editor, viewer)
+  - Project-level artifact isolation
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: 5+ design partner projects
 
-#### 1.3 Git Integration
-- Detect code-to-artifact links (parse commit messages for "REQ-123")
-- Pull request metadata
-- Commit history tracking
-- Webhook handlers (GitHub, GitLab, Bitbucket)
+#### M3: Impact Analysis
+- **Impact Visualization**
+  - "What breaks if I change this?" analysis
+  - Dependency graph visualization (force-directed)
+  - Impact breadth (direct + transitive dependencies)
+  - Change risk scoring
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: Design partners use impact analysis in decision-making
 
-#### 1.4 Test Integration
-- Manual test input (simple form)
-- Automated test sync (pull test results from CI/CD)
-- Test-to-requirement linking
-- Coverage tracking
+- **Coverage Detection**
+  - Find requirements without tests
+  - Find requirements without code
+  - Find code without tests
+  - Visual gap detection dashboard
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: Teams fix 50%+ of detected gaps
 
-#### 1.5 CLI Tool
-```bash
-alm artifact create REQ "User can login with SSO"
-alm artifact list --type requirement
-alm link REQ-123 CODE-456
-alm trace REQ-123        # show all related artifacts
-alm impact CODE-456      # what requirements does this affect?
+#### M4-5: Design Partner Program
+- **Design Partner Setup**
+  - Onboard 5-10 design partners
+  - Weekly 1:1s with each partner
+  - Monthly all-hands (all partners + team)
+  - Office hours (2x per week)
+  - Feedback collection & prioritization
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: 5-10 partners actively using system
+
+- **Early Revenue**
+  - Design partner pricing (50% discount on Professional tier)
+  - Signed agreements with NDA + usage rights
+  - ✓ Estimated effort: 2 weeks (legal + sales)
+  - ✓ Success metric: $5k-10k MRR from design partners
+
+#### M6: Polish & Launch
+- **UI/UX Polish**
+  - Refine onboarding flow
+  - Improve artifact creation form
+  - Optimize impact analysis visualization
+  - Mobile-responsive design
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: NPS ≥ 40
+
+- **Documentation & Support**
+  - User guides & video tutorials
+  - API documentation
+  - Design partner support playbook
+  - FAQ & troubleshooting
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: Support tickets < 2/week
+
+- **Beta Launch (Limited)**
+  - Public announcement (design partners + select audience)
+  - GitHub open-source CLI
+  - ✓ Estimated effort: 1 week
+  - ✓ Success metric: 100+ signups
+
+### Phase 1 Success Metrics
+
+| Metric | Target | How We Measure |
+|--------|--------|-----------------|
+| Design partner satisfaction | NPS ≥ 50 | Monthly NPS survey |
+| Feature adoption | ≥80% of features used | Product analytics |
+| Impact analysis usage | ≥70% of teams use weekly | Event tracking |
+| Design partner retention | 8+ of 10 partners | Monthly check-ins |
+| Design partner MRR | $5k-10k | Revenue tracking |
+| Product-market fit signal | Clear problem validation | Partner interviews |
+
+### Phase 1 Technical Focus
+
+- ✓ Domain-Driven Design foundation
+- ✓ REST API with clean request/response
+- ✓ PostgreSQL relational design
+- ✓ Basic auth (email/password)
+- ✓ Manual linking (no AI)
+- ✓ Event-driven architecture (foundation)
+
+---
+
+## Phase 2: Market Fit (Months 7-12)
+
+**Goal**: Validate product-market fit, expand feature set, prepare for growth
+
+**Timeline**: Month 7 through Month 12 (6 months)
+
+### Phase 2 Deliverables
+
+#### M7-8: AI-Powered Linking
+- **AI Link Suggestions**
+  - Analyze artifact relationships
+  - Suggest likely links (ML model)
+  - One-click accept/reject
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: 80%+ acceptance rate on suggestions
+
+- **Auto-Link from Commit Messages**
+  - GitHub webhook integration
+  - Parse commit messages for artifact references
+  - Auto-create links (requirement #123 → commit abc1234)
+  - Conflict detection (circular deps, invalid links)
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: 50%+ of commits linked automatically
+
+#### M8-9: Git Integration Expansion
+- **Full Git Sync**
+  - Sync commits from GitHub/GitLab
+  - Pull request linkage
+  - Branch tracking
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: All design partner repos synced
+
+- **Commit-to-Requirement Detection**
+  - Heuristics: commit message parsing, file path analysis
+  - Predict which requirements are affected
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: 60%+ accuracy
+
+#### M9: Self-Hosted Deployment
+- **Self-Hosted Option**
+  - Docker deployment (single-container & cluster)
+  - Helm charts for Kubernetes
+  - PostgreSQL requirement documentation
+  - Redis requirement documentation
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: 2+ design partners self-hosting
+
+- **License & Legal**
+  - Enterprise license agreement
+  - Self-hosted pricing model ($10k/year base)
+  - ✓ Estimated effort: 2 weeks (legal)
+
+#### M10: Expanded Domains
+- **Testing Domain**
+  - Record test runs
+  - Link tests to requirements
+  - Coverage dashboards
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: Design partners link 50%+ of tests
+
+- **CI/CD Integration (Beta)**
+  - Webhook from CI/CD (GitHub Actions, GitLab CI, Jenkins)
+  - Build status → requirement artifact
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: 3+ design partners using CI/CD integration
+
+#### M11: Open Source CLI & SDKs
+- **Open Source CLI**
+  - GitHub CLI-style tool (averis-os CLI)
+  - Create/update artifacts from command line
+  - Batch operations (bulk import)
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: 100+ CLI users
+
+- **SDKs**
+  - Python SDK (data science integrations)
+  - JavaScript SDK (CI/CD, scripts)
+  - Ruby SDK (Rails integrations)
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: 10+ SDK integrations in production
+
+#### M12: Scale & Polish
+- **Performance Optimization**
+  - Query optimization (impact analysis)
+  - Cache strategy (Redis)
+  - Async job processing
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: P95 response time < 500ms
+
+- **Accessibility & Localization**
+  - WCAG 2.1 AA compliance
+  - Internationalization foundation (i18n)
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: WAVE score ≥ 95
+
+- **Marketing & Growth**
+  - Content marketing (blog, guides)
+  - Community building (Discord, GitHub Discussions)
+  - Customer case studies
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: 1000+ community members
+
+### Phase 2 Success Metrics
+
+| Metric | Target | How We Measure |
+|--------|--------|-----------------|
+| Product-market fit | Strong signals | NPS ≥ 60, retention ≥ 80% |
+| SaaS MRR | $25k-50k | Revenue tracking |
+| Self-hosted customers | 3-5 | Signed contracts |
+| CLI downloads | 1000+ | Package registry stats |
+| AI link accuracy | ≥80% | Evaluation dataset |
+| Design partner → customer conversion | 70%+ | Sales tracking |
+
+### Phase 2 Technical Focus
+
+- ✓ AI/ML for link suggestions (start with heuristics, graduate to ML)
+- ✓ Git integration & webhook processing
+- ✓ Self-hosted deployment
+- ✓ Advanced event processing (CI/CD, tests)
+- ✓ Open source strategy (CLI, SDKs)
+- ✓ Performance optimization
+
+---
+
+## Phase 3: Enterprise Scale (Months 13-18+)
+
+**Goal**: Build enterprise features, prepare for large organizations, establish market leadership
+
+**Timeline**: Month 13 through Month 18+ (6 months+)
+
+### Phase 3 Deliverables
+
+#### M13-14: Enterprise Features
+- **SSO & Advanced Auth**
+  - OAuth2 / OpenID Connect
+  - SAML support
+  - LDAP integration (Active Directory)
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: 5+ enterprise customers using SSO
+
+- **Audit & Compliance**
+  - Complete audit log (who changed what when)
+  - GDPR compliance (data export, right to be forgotten)
+  - SOC 2 Type II compliance
+  - HIPAA readiness
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: SOC 2 certification achieved
+
+- **Advanced Permissions**
+  - Fine-grained role-based access (RBAC)
+  - Custom roles
+  - Permission inheritance
+  - ✓ Estimated effort: 2 weeks
+  - ✓ Success metric: Enterprise customers customize 50% of roles
+
+#### M14-15: Microservices Architecture
+- **Extract High-Traffic Domains**
+  - Traceability service (independent scaling)
+  - Git integration service (webhook processing)
+  - Email service (async delivery)
+  - ✓ Estimated effort: 6 weeks
+  - ✓ Success metric: Latency reduced 50%, throughput increased 3x
+
+- **Service-to-Service Communication**
+  - Event streaming (Kafka or RabbitMQ)
+  - Request/response patterns
+  - Circuit breakers & resilience
+  - ✓ Estimated effort: 4 weeks
+
+#### M15-16: Advanced Analytics
+- **Velocity Metrics**
+  - Time from requirement to release
+  - Feature completion rate
+  - Change frequency analysis
+  - ✓ Estimated effort: 3 weeks
+  - ✓ Success metric: Teams make decisions based on analytics
+
+- **Risk Scoring**
+  - Circular dependency detection
+  - Coverage gap scoring
+  - Untested code scoring
+  - ✓ Estimated effort: 2 weeks
+
+#### M16-17: Extensibility
+- **Plugin System**
+  - Custom domain creation
+  - Integration marketplace
+  - Webhook system (publish events)
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: 10+ third-party integrations
+
+- **GraphQL API**
+  - GraphQL endpoint
+  - Powerful query language
+  - Subscriptions for real-time updates
+  - ✓ Estimated effort: 3 weeks
+
+#### M17-18: Market Expansion
+- **Mobile Apps**
+  - iOS & Android apps
+  - Native notification support
+  - Offline mode (limited)
+  - ✓ Estimated effort: 6 weeks
+  - ✓ Success metric: 1000+ app installs
+
+- **Premium Features**
+  - Advanced AI (custom models)
+  - Dedicated support
+  - Custom integrations
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: Premium tier at $10k+/month
+
+### Phase 3 Success Metrics
+
+| Metric | Target | How We Measure |
+|--------|--------|-----------------|
+| Enterprise customers | 10+ | Signed contracts |
+| Enterprise MRR | $100k+ | Revenue tracking |
+| SaaS + self-hosted total MRR | $150k+ | Combined revenue |
+| Product maturity | Industry standard | Customer feedback |
+| Developer ecosystem | Active | Community contributions |
+
+### Phase 3 Technical Focus
+
+- ✓ Enterprise security (SSO, SAML, audit logs)
+- ✓ Microservices architecture
+- ✓ Advanced analytics & ML
+- ✓ GraphQL API
+- ✓ Plugin/extensibility system
+- ✓ Mobile apps
+
+---
+
+## Timeline Summary
+
+```
+Now       M3        M6        M9        M12       M15       M18
+│─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────│
+Phase 1: MVP & Validation
+├─ Core Traceability (M1-2)
+├─ Impact Analysis (M3)
+├─ Design Partners (M4-5)
+└─ Launch (M6)
+                    Phase 2: Market Fit
+                    ├─ AI Linking (M7-8)
+                    ├─ Git Integration (M8-9)
+                    ├─ Self-Hosted (M9)
+                    ├─ Expanded Domains (M10)
+                    ├─ Open Source (M11)
+                    └─ Scale & Polish (M12)
+                                        Phase 3: Enterprise
+                                        ├─ Enterprise Features (M13-14)
+                                        ├─ Microservices (M14-15)
+                                        ├─ Analytics (M15-16)
+                                        ├─ Extensibility (M16-17)
+                                        └─ Market Expansion (M17-18+)
 ```
 
-#### 1.6 IDE Extension (VS Code)
-- Show context panel: Display related requirements/tests
-- Quick link: Create relationships from IDE
-- Navigate: Jump from code to requirement
+---
 
-#### 1.7 Minimal AI (No LLM)
-- Auto-linking heuristics: Detect artifact IDs in commits
-- Suggestion engine: "You changed PaymentService. These requirements might be affected"
-- No heavy LLM calls (avoid costs)
+## Key Assumptions
 
-#### 1.8 Design Partner Program
-- 5-10 beta users
-- Setup guide for quick onboarding
-- Weekly feedback sessions
-- Case study collection
+1. **Design Partner Validation**: 5-10 design partners validate problem-solution fit in Phase 1
+2. **AI Feasibility**: Open-source models (Ollama, OpenRouter) sufficient for Phase 2 AI needs
+3. **Git Integration Demand**: Design partners need and use GitHub/GitLab sync
+4. **Self-Hosted Demand**: 3-5 customers want self-hosted by end of Phase 2
+5. **Enterprise Growth**: Market supports 10+ enterprise customers by Phase 3
 
-### Success Metrics
-- 5+ design partners using daily
-- 100+ artifacts created across partners
-- NPS > 50
-- Core API, CLI, IDE extension all working
+## Risk Mitigation
+
+| Risk | Impact | Mitigation |
+|------|--------|-----------|
+| Design partners don't find value | High | Weekly 1:1s, rapid iteration, clear feedback loops |
+| AI linking not accurate enough | Medium | Start with heuristics, collect training data, refine |
+| Scaling issues | Medium | Performance budgets (M12), load testing, optimization |
+| Enterprise competition | High | First-mover advantage in traceability space, deep customization |
+| Team retention | High | Clear vision, interesting technical challenges, equity |
+
+## Investment & Financials
+
+| Phase | Estimated Team Size | Monthly Burn | Design Partner Revenue | Self-Hosted Revenue | SaaS Revenue | Total MRR |
+|-------|-------------------|-------------|----------------------|-------------------|------------|----------|
+| Phase 1 (M1-6) | 3-4 engineers + 1 PM | $30k | — | — | — | $0 |
+| Phase 1 (M4-6) | 3-4 engineers + 1 PM | $30k | $5k | — | — | $5k |
+| Phase 2 (M7-12) | 4-6 engineers + 2 PM/ops | $40k | $8k | $10k | $20k | $38k |
+| Phase 3 (M13-18) | 6-10 engineers + 3 PM/ops | $50k | — | $40k | $80k | $120k |
 
 ---
 
-## Phase 2: Market Fit (Months 4-8)
+## Next Steps
 
-**Goal:** Convert design partners to paying customers and expand capabilities.
-
-**Team:** 5-7 people  
-**Budget:** $80-120k  
-**Success Metric:** 10-20 paying customers, $20-40k MRR, 80%+ retention
-
-### Key Deliverables
-
-#### 2.1 AI Agents (Open-Source)
-- Ollama integration for Llama 2, Mistral
-- No vendor lock-in: Customers choose models
-- Custom skills: Organizations create domain-specific AI tasks
-- Cost tracking: Show estimated cost per agent run
-
-#### 2.2 Advanced Traceability
-- Impact analysis: "What does this code change affect?"
-- Dependency visualization: Full dependency chains
-- Gap detection: "This requirement has no tests"
-- Change risk: Calculate risk scores per change
-
-#### 2.3 Product Intelligence
-- Roadmap management: Link customer research → roadmap → requirements
-- Customer research artifact type
-- Prioritization: AI-assisted impact/effort scoring
-- Outcome tracking: Link releases to business outcomes
-
-#### 2.4 Enterprise Deployment
-- Docker Compose setup: Self-hosted option
-- PostgreSQL backups: Automated daily
-- RBAC: Role-based access control
-- Audit logs: Track changes
-
-#### 2.5 Expanded Integrations
-- Jira integration: Bi-directional sync
-- Slack notifications
-- GitHub/GitLab advanced sync
-- DataDog/Prometheus monitoring data
-
-#### 2.6 Sales & Pricing
-- Starter tier: $500/month (10 users, 1 project)
-- Professional tier: $2,000/month (50 users, 5 projects)
-- Enterprise tier: Custom pricing
-- Stripe integration, trial signup
-
-#### 2.7 Customer Success
-- Onboarding: 2-hour setup with each customer
-- Weekly check-ins
-- Video training
-- Community Slack
-
-### Success Metrics
-- 10-20 paying customers
-- $20-40k MRR
-- 80%+ retention
-- NPS > 50
-- 3+ case studies
-
----
-
-## Phase 3: Enterprise Scale (Months 9-18)
-
-**Goal:** Enterprise features, multi-region infrastructure, established brand.
-
-**Team:** 10+ people  
-**Budget:** $150-250k  
-**Success Metric:** 50+ customers, $200k+ MRR, product-market fit signals
-
-### Key Deliverables
-
-#### 3.1 AI Marketplace
-- 10+ pre-built skills available
-- Skill editor UI
-- Community sharing
-- Versioning and governance
-
-#### 3.2 Advanced Analytics
-- DORA metrics: Cycle time, deployment frequency, etc.
-- Quality metrics: Defect escape rate, coverage trends
-- Team metrics: Velocity, code review cycles
-- Customizable dashboards
-
-#### 3.3 MCP Server Support
-- Expose APIs via Model Context Protocol
-- External agents can query AverisOS
-- Enable custom workflows with GPT plugins
-
-#### 3.4 Compliance & Governance
-- Approval workflows
-- Compliance checklists (SOC 2, HIPAA, PCI-DSS)
-- Change tracking for audit
-- Data residency options
-
-#### 3.5 Portfolio Intelligence
-- Cross-project impact analysis
-- Dependency mapping across projects
-- Release coordination
-- Portfolio-level risk assessment
-
-#### 3.6 Observability Integration
-- Deploy → metrics linking
-- Error tracking integration
-- Performance impact analysis
-- Release validation
-
-#### 3.7 Advanced IDE Integration
-- JetBrains support (IntelliJ, PyCharm, etc.)
-- Neovim plugin
-- Inline insights and warnings
-- Copilot-style interaction
-
-#### 3.8 Global Infrastructure
-- Multi-region deployment
-- High availability setup
-- CDN for static assets
-- 99.5% uptime SLA
-
-### Success Metrics
-- 50+ customers
-- $200k+ MRR
-- NPS > 60
-- Product-market fit signals (low churn, high expansion)
-
----
-
-## Timeline Overview
-
-```
-Month 1-3:    Phase 1 MVP
-              └─ Design partners, core features
-
-Month 4-8:    Phase 2 Market Fit
-              └─ Paying customers, AI agents
-
-Month 9-18:   Phase 3 Enterprise
-              └─ Multi-region, advanced features
-```
-
-## Key Milestones
-
-| Milestone | Target | Status |
-|-----------|--------|--------|
-| MVP launches | Month 3 | Planning |
-| First paying customer | Month 5-6 | Planning |
-| 10 customers | Month 8 | Planning |
-| Product-market fit | Month 8+ | Planning |
-| Phase 2 complete | Month 8 | Planning |
-| Phase 3 complete | Month 18 | Planning |
-
-## Financial Projections
-
-| Metric | Year 1 | Year 2 | Year 3 |
-|--------|--------|--------|--------|
-| Customers | 10-20 | 50-100 | 200-300 |
-| MRR | $10-30k | $100-200k | $300-500k |
-| ARR | $120-360k | $1.2-2.4M | $3.6-6M |
-
----
-
-**Next:** See [Business Model](/planning/business-model) for pricing and go-to-market details.
+1. [Validate problem with design partners](/planning/go-to-market) (Phase 1 critical path)
+2. [Understand business model](/planning/business-model) (pricing, revenue, unit economics)
+3. [Review go-to-market strategy](/planning/go-to-market) (customer acquisition channels)
+4. [Study architecture](/architecture/overview) (understand technical foundation)

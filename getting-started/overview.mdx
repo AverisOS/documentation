@@ -1,0 +1,156 @@
+---
+title: "Product Overview"
+description: "Understanding the AverisOS vision"
+---
+
+# AverisOS: Product Overview
+
+## The Problem
+
+Modern software organizations struggle with a fundamental disconnect: **requirements and reality diverge**. 
+
+Here's what happens in most teams:
+
+1. **Requirements are written** in Jira, Confluence, or scattered docs
+2. **Code is written** in GitHub with no link back to requirements
+3. **Tests are written** in test runners with no traceability
+4. **Releases ship** with no one knowing what actually changed
+5. **Someone asks**: "What breaks if we change this requirement?" and nobody knows
+
+This creates **invisible dependencies, missed test coverage, and surprise failures**.
+
+## The Solution
+
+AverisOS is an **AI-native operating system for software delivery** that creates an **unbreakable chain of custody** from requirements → code → tests → releases.
+
+Every artifact (requirement, feature, code, test, release) is:
+- **Created** with rich context
+- **Connected** to related artifacts
+- **Traced** through dependencies
+- **Visualized** for impact analysis
+- **Automated** for routine tasks
+
+### Core Capabilities
+
+**1. Artifact Management**
+Create and organize software artifacts: requirements, features, code, tests, releases. Each artifact has metadata, ownership, status, and lifecycle.
+
+**2. Relationship Mapping**
+Link artifacts to show how they depend on each other. A requirement *implements* a feature, a feature *validates* a test, a test *covers* code.
+
+**3. Impact Analysis**
+Ask "what breaks if I change this?" and get instant answers. See all downstream dependencies, affected tests, and required changes.
+
+**4. Traceability**
+Follow the chain: requirement → feature → code → test → release. Every change is auditable and every decision is documented.
+
+**5. AI-Powered Assistance**
+AI helps with routine work: finding related artifacts, suggesting links, detecting coverage gaps, identifying circular dependencies.
+
+## Why It Matters
+
+### For Product Teams
+- **Requirements clarity**: Know exactly which features implement which requirements
+- **Gap detection**: See which requirements lack tests or code
+- **Change impact**: Understand consequences before making decisions
+
+### For Engineering Teams
+- **Quality assurance**: Automated traceability reduces manual QA effort
+- **Debugging**: Instantly find which requirements are affected by a code change
+- **Onboarding**: New team members understand why code exists (traceability)
+
+### For Leadership
+- **Velocity tracking**: Understand how long features take from requirement to release
+- **Risk management**: See dependencies and potential impact before changes
+- **Customer communication**: Trace requirements to releases for customer updates
+
+## The AverisOS Difference
+
+| Aspect | Traditional | AverisOS |
+|--------|-----------|----------|
+| Traceability | Manual links in Jira/Confluence | Automatic, enforced connections |
+| Impact Analysis | "Let me check..." (slow) | Instant, visual impact map |
+| Coverage Detection | Manual audit | Automated gap detection |
+| Dependency Management | Implicit, error-prone | Explicit, validated |
+| Change Risk | Unknown | Quantified and visualized |
+| Onboarding Time | Weeks | Days (clear traceability explains why) |
+
+## Technical Foundation
+
+AverisOS is built using:
+- **Domain-Driven Design**: Clear separation of concerns across multiple domains
+- **Result Monad Pattern**: Explicit error handling without exceptions
+- **Event-Driven Architecture**: Loose coupling between domains
+- **Rails + Dry-rb**: Modern, proven, maintainable stack
+- **PostgreSQL**: Reliable, scalable relational data
+
+See [Architecture Overview](/architecture/overview) for technical details.
+
+## The Vision
+
+### Phase 1: MVP & Validation (Now)
+- Core traceability (create, link, analyze artifacts)
+- Design partner program (5-10 customers for feedback)
+- Manual linking (foundation for AI in Phase 2)
+- Basic requirements → features → code → tests flow
+
+### Phase 2: Market Fit (6 months)
+- AI-powered linking and suggestions
+- Self-hosted deployment option
+- Expanded domain support (CI/CD, analytics)
+- Open-source CLI and SDKs
+- Product-market fit validation
+
+### Phase 3: Enterprise Scale (12+ months)
+- Advanced features (audit trails, compliance, SSO)
+- Full enterprise support
+- Microservices architecture
+- Extensible plugin system
+
+See [Roadmap](/planning/roadmap) for detailed deliverables and timeline.
+
+## Business Model
+
+AverisOS operates as a **SaaS platform** with three tiers:
+
+**Starter** ($500/month)
+- Up to 5 projects
+- Up to 10 team members
+- 100K artifacts
+- Community support
+
+**Professional** ($2,000/month)
+- Unlimited projects
+- Unlimited team members
+- 10M artifacts
+- Priority support
+- Advanced analytics
+
+**Enterprise** (Custom)
+- Everything in Professional
+- Self-hosted or private cloud
+- SSO, audit logs, compliance
+- Dedicated support
+
+Early design partners in Phase 1 will receive special pricing and influence product direction.
+
+See [Business Model](/planning/business-model) for detailed unit economics and go-to-market strategy.
+
+## Getting Started
+
+- **New to AverisOS?** Start with [Quick Start](/getting-started/quick-start) for a 5-minute orientation
+- **Want to understand the roadmap?** See [Product Roadmap](/planning/roadmap)
+- **Ready to build?** Follow [Local Setup](/development/setup) to start developing
+- **Want architectural details?** Review [Architecture](/architecture/overview)
+
+## Key Principles
+
+1. **Clarity Over Cleverness**: Code that explains itself beats clever code every time
+2. **Explicit Over Implicit**: Dependencies and assumptions are explicit and validated
+3. **Fail Fast, Fail Clear**: Errors are caught early with clear, actionable messages
+4. **Human in the Loop**: Automation handles busywork; humans make decisions
+5. **Open Where It Matters**: CLI and SDKs are open source; platform innovation is proprietary
+
+---
+
+**Next**: Dive into [Quick Start](/getting-started/quick-start) to see AverisOS in action in 5 minutes.

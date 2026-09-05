@@ -1,0 +1,360 @@
+---
+title: "ADR-005: Dry-rb for Validation, Types, and Structs"
+description: "Architecture Decision Record - Type safety and validation library choice"
+---
+
+# ADR-005: Dry-rb for Validation, Types, and Structs
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+How should we handle:
+- Input validation (Request verification)
+- Type definitions (strong types in Ruby)
+- Data structures (Request/Response objects)
+
+### Options
+
+**1. ActiveModel::Validations**
+- Rails standard
+- Works with models
+
+**2. dry-rb**
+- Type safety with `dry-types`
+- Composable validations with `dry-validation`
+- Data structures with `dry-struct`
+- Functional programming approach
+
+**3. Nothing** (string params, implicit validation)
+- Simple
+- Error-prone
+
+---
+
+## Decision
+
+Use **dry-rb ecosystem**:
+- `dry-types` for type definitions
+- `dry-validation` for composable validation rules
+- `dry-struct` for strongly-typed request/response objects
+- `dry-initializer` for clean initialization
+
+### Why dry-rb?
+- **Type safety**: Catch errors early
+- **Composability**: Build complex validations from simple rules
+- **Documentation**: Validation rules are self-documenting
+- **Testability**: Validate independently from business logic
+- **Functional**: Works well with our domain service approach
+
+---
+
+## Alternatives Considered
+
+### 1. ActiveModel::Validations
+**Pros**: Rails standard, familiar  
+**Cons**: Tightly coupled to models, imperative, hard to compose
+
+**Verdict**: Works for models, not for Request validation in domain layer.
+
+### 2. Dry-rb (This Decision)
+**Pros**: Composable, type-safe, functional, testable  
+**Cons**: Additional dependency, steeper learning curve
+
+**Verdict**: Perfect for domain layer validation.
+
+### 3. Nothing (Just strings)
+**Pros**: Simple initially  
+**Cons**: Error-prone, no type safety, duplicated validation logic
+
+**Verdict**: Leads to bugs.
+
+---
+
+## Rationale
+
+### ✓ Type Safety
+dry-types provides strong typing:
+```ruby
+require 'dry-types'
+require 'dry-struct'
+
+module Types
+  include Dry::Types()
+end
+
+class CreateArtifactRequest < Dry::Struct
+  attribute :project_id, Types::Integer
+  attribute :type, Types::String.enum('requirement', 'feature', 'task')
+  attribute :title, Types::String
+  attribute :description, Types::String.optional
+end
+
+# Ruby will catch type errors
+request = CreateArtifactRequest.new(
+  project_id: "123",  # Will be coerced to integer or raise
+  type: "invalid",    # Will raise (not in enum)
+  title: "Test"
+)
+```
+
+### ✓ Composable Validation
+Build complex rules from simple ones:
+```ruby
+EmailSchema = Dry::Validation.Schema do
+  required(:email).filled(:str?) do
+    str?(:filled?) >> format?(/\A[^\s@]+@[^\s@]+\.[^\s@]+\z/)
+  end
+end
+
+CreateUserSchema = Dry::Validation.Schema do
+  required(:email).filled(:str?) { EmailSchema }
+  required(:password).filled(:str?) { min_size?(8) }
+  required(:name).filled(:str?) { max_size?(100) }
+end
+
+# Validates all rules
+result = CreateUserSchema.call(params)
+result.errors  # => Returns all validation errors
+```
+
+### ✓ Self-Documenting
+Validation rules are the documentation:
+```ruby
+class CreateArtifactRequest < Dry::Struct
+  attribute :project_id, Types::Positive::Integer  # Must be > 0
+  attribute :type, Types::String.enum('requirement', 'feature', 'task')  # Enum
+  attribute :title, Types::String  # Required
+  attribute :description, Types::String.optional  # Optional
+end
+
+# Anyone reading this knows exactly what's valid
+```
+
+### ✓ Independent Testing
+Validate independently:
+```ruby
+describe "CreateArtifactRequest" do
+  it "accepts valid input" do
+    request = CreateArtifactRequest.new(
+      project_id: 1,
+      type: 'requirement',
+      title: 'Test'
+    )
+    expect(request.project_id).to eq(1)
+  end
+
+  it "rejects invalid input" do
+    expect {
+      CreateArtifactRequest.new(
+        project_id: -1,  # Invalid: must be positive
+        type: 'invalid', # Invalid: not in enum
+        title: ''        # Invalid: required
+      )
+    }.to raise_error(Dry::Struct::Error)
+  end
+end
+```
+
+### ✓ Works with Domain Services
+Pairs well with our four-phase pattern:
+```ruby
+# Request object with types
+class Request < Dry::Struct
+  attribute :project_id, Types::Positive::Integer
+  attribute :type, Types::String.enum('requirement', 'feature')
+  attribute :title, Types::String
+end
+
+# Verify phase uses dry-validation
+class Verify
+  Schema = Dry::Validation.Schema do
+    required(:project_id) { filled? & int? }
+    required(:type) { filled? & str? }
+    required(:title) { filled? & str? { max_size?(500) } }
+  end
+
+  def self.call(request)
+    result = Schema.call(request.to_h)
+    return Shared::Result.failure(result.errors) if result.failure?
+    Shared::Result.success(request)
+  end
+end
+```
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Type safety**: Catch errors at the boundary
+- **Clear validation rules**: Self-documenting
+- **Composable**: Build complex rules from simple ones
+- **Testable**: Validate without touching database
+- **Functional**: Immutable by default
+
+### ⚠️ Negative
+- **Additional dependency**: More gems to maintain
+- **Learning curve**: Developers need to learn dry-rb patterns
+- **Verbosity**: More code for simple validations
+- **Coercion**: Type coercion can be surprising
+
+### 🛡️ Mitigation
+- **Provide examples**: Document common patterns
+- **Start simple**: Begin with basic structs and types
+- **Team training**: Spend time understanding dry-rb
+- **Wrapper functions**: Create helpers for common patterns
+
+---
+
+## Implementation Guide
+
+### Basic Struct
+```ruby
+require 'dry-struct'
+require 'dry-types'
+
+module Types
+  include Dry::Types()
+end
+
+class UserRequest < Dry::Struct
+  attribute :email, Types::String
+  attribute :password, Types::String
+  attribute :name, Types::String
+  attribute :age, Types::Integer.optional
+end
+
+# Usage
+user = UserRequest.new(
+  email: "test@example.com",
+  password: "secret123",
+  name: "John"
+)
+```
+
+### Validation Schema
+```ruby
+require 'dry-validation'
+
+class CreateUserSchema < Dry::Validation::Schema
+  define do
+    required(:email).filled(:str?) do
+      str?(:filled?) >> format?(/\A[^\s@]+@[^\s@]+\.[^\s@]+\z/)
+    end
+
+    required(:password).filled(:str?) do
+      str?(:filled?) >> min_size?(8)
+    end
+
+    required(:name).filled(:str?) do
+      str?(:filled?) >> max_size?(100)
+    end
+  end
+end
+
+result = CreateUserSchema.call(params)
+
+if result.success?
+  # Valid
+else
+  # Errors: {email: ["is invalid"], password: ["is too short"]}
+end
+```
+
+### Custom Types
+```ruby
+module Types
+  include Dry::Types()
+
+  ProjectId = Integer.constrained(gt: 0)
+  Email = String.constrained(format: /\A[^\s@]+@[^\s@]+\.[^\s@]+\z/)
+  Slug = String.constrained(
+    format: /\A[a-z0-9\-]+\z/,
+    max_size: 50
+  )
+end
+
+class ProjectRequest < Dry::Struct
+  attribute :name, Types::String
+  attribute :slug, Types::Slug
+  attribute :email, Types::Email
+end
+```
+
+---
+
+## When to Use dry-rb
+
+### ✓ Use dry-rb for:
+- Request/Response objects in domain layer
+- Input validation in Verify phase
+- Type safety at domain boundaries
+- Complex validation rules
+
+### ❌ Don't use dry-rb for:
+- Simple model validations (use Rails validations)
+- HTTP parameter coercion (use strong_parameters)
+- Database constraints (use migrations)
+
+---
+
+## Integration with Domain Layer
+
+```ruby
+# Request object
+class CreateArtifactRequest < Dry::Struct
+  attribute :project_id, Types::Integer
+  attribute :type, Types::String
+  attribute :title, Types::String
+  attribute :description, Types::String.optional
+end
+
+# Verify phase uses validation schema
+class CreateArtifact::Verify
+  Schema = Dry::Validation.Schema do
+    required(:project_id) { filled? & int? }
+    required(:type) { filled? & included_in?(['requirement', 'feature']) }
+    required(:title) { filled? & str? & max_size?(500) }
+  end
+
+  def self.call(request)
+    result = Schema.call(request.to_h)
+    return Shared::Result.failure(result.errors) if result.failure?
+    Shared::Result.success(request)
+  end
+end
+
+# Command phase uses request attributes
+class CreateArtifact::Command
+  def call(request)
+    artifact = @repository.create(
+      project_id: request.project_id,
+      type: request.type,
+      title: request.title,
+      description: request.description
+    )
+    Shared::Result.success(artifact)
+  end
+end
+```
+
+---
+
+## Related Decisions
+
+- [ADR-001: Domain-Driven Design](./adr-001-ddd.mdx)
+- [ADR-002: Result Monad](./adr-002-result-monad.mdx)
+
+---
+
+## References
+
+- [dry-types Documentation](https://dry-rb.org/gems/dry-types/)
+- [dry-validation Documentation](https://dry-rb.org/gems/dry-validation/)
+- [dry-struct Documentation](https://dry-rb.org/gems/dry-struct/)
+- [Design Principles - Error Handling](../architecture/design-principles.mdx)

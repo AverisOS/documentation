@@ -1,0 +1,487 @@
+---
+title: "Monorepo Structure"
+description: "How domains are organized in the AverisOS monorepo"
+---
+
+# Monorepo Structure
+
+AverisOS uses a **monorepo** structure with domain-bounded contexts that can be extracted to separate services in Phase 3+.
+
+## Why Monorepo?
+
+- **MVP speed**: Develop domains together during validation phase
+- **Shared code**: Common patterns, error types, repositories
+- **Cross-domain changes**: Single PR for changes affecting multiple domains
+- **Future extraction**: Clear domain boundaries make extraction straightforward
+
+See [ADR-003: Monorepo for Domains](../decisions/adr-003-monorepo.mdx) for full rationale.
+
+---
+
+## Directory Structure
+
+```
+averis-os/
+├── app/
+│   ├── controllers/
+│   │   ├── api/
+│   │   │   ├── v1/
+│   │   │   │   ├── artifacts_controller.rb
+│   │   │   │   ├── relationships_controller.rb
+│   │   │   │   ├── users_controller.rb
+│   │   │   │   └── ...
+│   │   └── health_controller.rb
+│   ├── models/
+│   │   ├── artifact.rb
+│   │   ├── artifact_relationship.rb
+│   │   ├── user.rb
+│   │   ├── project.rb
+│   │   └── ...
+│   └── serializers/
+│       ├── artifact_serializer.rb
+│       ├── user_serializer.rb
+│       └── ...
+├── domains/
+│   ├── shared/
+│   │   ├── lib/
+│   │   │   ├── result.rb
+│   │   │   ├── event.rb
+│   │   │   ├── event_dispatcher.rb
+│   │   │   └── ...
+│   │   ├── repositories/
+│   │   │   ├── base_repository.rb
+│   │   │   ├── artifact_repository.rb
+│   │   │   ├── user_repository.rb
+│   │   │   └── ...
+│   │   └── errors/
+│   │       ├── base_error.rb
+│   │       ├── validation_error.rb
+│   │       └── ...
+│   ├── authentication/
+│   │   ├── domain/
+│   │   │   ├── authentication_service.rb
+│   │   │   ├── register_user/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   ├── login_user/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   ├── reset_password/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   └── events/
+│   │   │       ├── user_registered.rb
+│   │   │       ├── user_logged_in.rb
+│   │   │       └── ...
+│   │   └── spec/
+│   │       ├── register_user_spec.rb
+│   │       ├── login_user_spec.rb
+│   │       └── ...
+│   ├── traceability/
+│   │   ├── domain/
+│   │   │   ├── traceability_service.rb
+│   │   │   ├── create_artifact/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   ├── link_artifacts/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   ├── impact_analysis/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   ├── find_related/
+│   │   │   │   ├── request.rb
+│   │   │   │   ├── verify.rb
+│   │   │   │   ├── validate.rb
+│   │   │   │   └── command.rb
+│   │   │   └── events/
+│   │   │       ├── artifact_created.rb
+│   │   │       ├── artifacts_linked.rb
+│   │   │       ├── artifact_status_changed.rb
+│   │   │       └── ...
+│   │   └── spec/
+│   │       ├── create_artifact_spec.rb
+│   │       ├── link_artifacts_spec.rb
+│   │       ├── impact_analysis_spec.rb
+│   │       └── ...
+│   ├── git_integration/
+│   │   ├── domain/
+│   │   │   ├── git_integration_service.rb
+│   │   │   ├── sync_commits/
+│   │   │   ├── detect_related_artifacts/
+│   │   │   └── events/
+│   │   └── spec/
+│   ├── testing/
+│   │   ├── domain/
+│   │   │   ├── testing_service.rb
+│   │   │   ├── record_test_run/
+│   │   │   ├── link_test_to_requirement/
+│   │   │   └── events/
+│   │   └── spec/
+│   └── email/
+│       ├── domain/
+│       │   ├── email_service.rb
+│       │   ├── send_notification/
+│       │   └── event_handlers/
+│       └── spec/
+├── lib/
+│   ├── averis_os.rb
+│   ├── container.rb  # Dependency injection container
+│   └── middleware/
+│       ├── error_handler.rb
+│       └── logging.rb
+├── spec/
+│   ├── integration/
+│   ├── support/
+│   └── factories/
+├── config/
+│   ├── routes.rb
+│   ├── initializers/
+│   │   ├── container.rb  # Set up DI container
+│   │   └── event_subscriptions.rb  # Register event handlers
+│   └── environments/
+├── db/
+│   ├── migrate/
+│   └── schema.rb
+├── Gemfile
+├── Rakefile
+└── README.md
+```
+
+---
+
+## Key Directories Explained
+
+### `/domains/shared`
+
+**Purpose**: Shared code used across all domains.
+
+**Contains**:
+- `Result` monad and error handling
+- `EventDispatcher` for cross-domain communication
+- Base repository class
+- Common error types
+- Shared utilities
+
+**Who uses it**: Every domain imports from `shared`.
+
+**Example**:
+```ruby
+# In any domain
+result = Shared::Result.success(artifact)
+return result.and_then { |a| next_operation(a) }
+```
+
+---
+
+### `/domains/[domain_name]/domain`
+
+**Purpose**: Business logic for a specific domain.
+
+**Contains**:
+- Service entry point (`[domain]_service.rb`)
+- Operations (Request/Verify/Validate/Command)
+- Domain events
+- Domain-specific exceptions
+
+**Pattern**:
+```
+domains/traceability/domain/
+├── traceability_service.rb     # Entry point
+├── create_artifact/            # Operation
+│   ├── request.rb
+│   ├── verify.rb
+│   ├── validate.rb
+│   └── command.rb
+├── link_artifacts/             # Operation
+│   ├── request.rb
+│   ├── verify.rb
+│   ├── validate.rb
+│   └── command.rb
+└── events/                      # Domain events
+    ├── artifact_created.rb
+    └── artifacts_linked.rb
+```
+
+---
+
+### `/app/controllers`
+
+**Purpose**: HTTP routing and serialization only.
+
+**Contains**:
+- Rails controllers grouped by API version
+- Serializers for domain models
+- No business logic
+
+**Pattern**:
+```ruby
+module Api
+  module V1
+    class ArtifactsController < ApplicationController
+      def create
+        service = AverisOS::Container['domains.traceability']
+        result = service.create_artifact(create_params)
+
+        if result.success?
+          render json: ArtifactSerializer.new(result.value), status: 201
+        else
+          render json: { error: result.error }, status: 422
+        end
+      end
+    end
+  end
+end
+```
+
+---
+
+### `/app/models`
+
+**Purpose**: Persistence and associations only.
+
+**Contains**:
+- Thin models with associations
+- Basic validations
+- Enums and scopes
+- No business logic
+
+**Pattern**:
+```ruby
+class Artifact < ApplicationRecord
+  belongs_to :project
+  belongs_to :owner, class_name: 'User'
+  has_many :outgoing_relationships, class_name: 'ArtifactRelationship'
+
+  validates :title, presence: true
+  enum status: { draft: 0, active: 1, archived: 2 }
+end
+```
+
+---
+
+### `/lib`
+
+**Purpose**: Infrastructure code.
+
+**Contains**:
+- DI container setup
+- Middleware
+- Configuration
+- CLI commands
+
+**Example**:
+```ruby
+# lib/container.rb
+require 'dry/container'
+require 'dry/auto_inject'
+
+module AverisOS
+  Container = Dry::Container.new
+
+  # Register shared services
+  Container.register('services.event_dispatcher') { EventDispatcher.new }
+
+  # Register repositories
+  Container.register('repositories.artifact') { ArtifactRepository.new }
+  Container.register('repositories.user') { UserRepository.new }
+
+  # Register domains
+  Container.register('domains.traceability') do
+    Traceability::TraceabilityService.new(container: Container)
+  end
+  Container.register('domains.authentication') do
+    Authentication::AuthenticationService.new(container: Container)
+  end
+end
+```
+
+---
+
+## Dependency Flow
+
+The dependency flow in AverisOS is **one-way**:
+
+```
+Controllers
+    ↓
+Domain Services
+    ↓
+Operations (Request/Verify/Validate/Command)
+    ↓
+Repositories
+    ↓
+Models (Persistence)
+```
+
+**Rules**:
+- ✓ Controllers call domain services
+- ✓ Domain services call operations
+- ✓ Operations call repositories
+- ✓ Operations emit events
+- ✓ Other domains subscribe to events
+- ❌ Models should NOT call services or operations
+- ❌ Operations should NOT call other operations directly (use service composition)
+- ❌ Domain A should NOT import from domain B (use events instead)
+
+---
+
+## Adding a New Domain
+
+When adding a new domain:
+
+1. **Create the domain directory**:
+   ```bash
+   mkdir -p domains/new_domain/domain/events
+   mkdir -p domains/new_domain/spec
+   ```
+
+2. **Create the service entry point**:
+   ```ruby
+   # domains/new_domain/domain/new_domain_service.rb
+   module NewDomain
+     class NewDomainService
+       def initialize(container:)
+         @container = container
+       end
+
+       def operation_name(params)
+         # Orchestrate Request/Verify/Validate/Command
+       end
+     end
+   end
+   ```
+
+3. **Create operations**:
+   ```bash
+   mkdir -p domains/new_domain/domain/operation_name
+   touch domains/new_domain/domain/operation_name/{request,verify,validate,command}.rb
+   ```
+
+4. **Register in container**:
+   ```ruby
+   # config/initializers/container.rb
+   Container.register('domains.new_domain') do
+     NewDomain::NewDomainService.new(container: Container)
+   end
+   ```
+
+5. **Subscribe to events** (if needed):
+   ```ruby
+   # config/initializers/event_subscriptions.rb
+   event_dispatcher.subscribe(SomeEvent) do |event|
+     NewDomain::NewDomainService.new(container: Container).handle_event(event)
+   end
+   ```
+
+---
+
+## Cross-Domain Communication
+
+Domains **should not** import from each other. Instead, they communicate via **events**.
+
+### ❌ Wrong: Direct import
+```ruby
+# In GitIntegration domain
+class DetectRelatedArtifacts
+  def call(commit)
+    artifact = Traceability::FindArtifact.call(commit.message)  # ❌ Direct import!
+  end
+end
+```
+
+### ✓ Right: Event-driven
+```ruby
+# In GitIntegration domain
+class SyncCommits
+  def call(commit)
+    # Emit event for other domains
+    @event_dispatcher.dispatch(
+      CommitSynced.new(hash: commit.hash, message: commit.message)
+    )
+    Shared::Result.success
+  end
+end
+
+# In Traceability domain (subscribed to CommitSynced)
+class CommitSyncedHandler
+  def call(event)
+    related = FindRelatedArtifacts.new(repositories: @repositories)
+    result = related.call(event.message)
+    if result.success?
+      # Link the commit to artifacts
+    end
+  end
+end
+```
+
+---
+
+## Testing Domains
+
+Each domain should have comprehensive tests:
+
+```
+domains/traceability/spec/
+├── create_artifact_spec.rb
+├── link_artifacts_spec.rb
+├── impact_analysis_spec.rb
+└── find_related_spec.rb
+```
+
+Test each phase independently:
+
+```ruby
+describe Traceability::CreateArtifact::Verify do
+  # Unit tests - no DB, no mocks
+  it "validates input format"
+end
+
+describe Traceability::CreateArtifact::Validate do
+  # Integration tests - with DB
+  it "checks project exists"
+end
+
+describe "CreateArtifact Integration" do
+  # E2E tests
+  it "creates artifact and emits event"
+end
+```
+
+---
+
+## Future Extraction to Microservices
+
+When a domain is ready to be extracted in Phase 3+:
+
+1. **Create separate repo** for the domain
+2. **Extract shared code** to shared gems (dry-rb patterns, Result monad, etc.)
+3. **Replace direct calls** with HTTP API calls
+4. **Keep event communication** the same (messages/queues)
+
+The domain boundary is already clear in the monorepo structure, so extraction is straightforward.
+
+---
+
+## Summary
+
+The monorepo structure:
+- **Keeps domains isolated** with clear boundaries
+- **Enables fast development** by keeping everything together
+- **Makes extraction easy** when needed
+- **Enforces good practices** through dependency direction
+- **Supports testing** at multiple levels
+
+When in doubt: **Keep domains isolated, communicate via events, extract when ready.**

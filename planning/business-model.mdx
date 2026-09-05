@@ -1,139 +1,377 @@
 ---
-title: Business Model
-description: Pricing, revenue model, and financial strategy
+title: "Business Model"
+description: "Pricing, revenue model, and financial projections"
 ---
 
-# Business Model & Pricing
+# AverisOS Business Model
 
-## Pricing Tiers
+## Value Proposition
 
-### Starter: $500/month
-**For:** Startups, small teams, open-source projects
+AverisOS solves critical problems for software teams:
 
-- Up to 10 users
-- 1 project
-- 100k artifacts
-- Community support (Slack/Discord)
-- Basic features (artifact management, traceability, CLI)
+| Problem | Cost of Not Solving | AverisOS Solution |
+|---------|-------------------|------------------|
+| Hidden dependencies | Requirements break silently | Complete traceability graph |
+| Manual impact analysis | Days to assess changes | Instant impact visualization |
+| Test coverage gaps | 30%+ of code untested | Automated gap detection |
+| Change risk | Costly surprises in production | Quantified risk scoring |
+| Compliance audits | Weeks of manual documentation | Automatic audit trail |
 
-### Professional: $2,000/month
-**For:** Mid-market teams, Series A-B companies
+**Economic impact**: Teams save 10-20 hours/month on manual traceability work, prevent 2-3 production incidents/year from change blindness.
 
-- Up to 50 users
-- 5 projects
-- Unlimited artifacts
-- Email support (48h response)
-- All AI agents
-- Custom skills
-- Advanced integrations
+---
 
-### Enterprise: Custom Pricing
-**For:** Large organizations, compliance requirements
+## Pricing Strategy
 
-- Unlimited users & projects
-- SLA (99.5% uptime)
-- Dedicated support (24h response)
-- Advanced RBAC & audit logs
-- Custom integrations
-- On-premise or private cloud option
-- Training & onboarding
+### SaaS Tiered Pricing
 
-### Open-Source: Free
-**For:** Public open-source projects
+AverisOS uses value-based pricing with three main tiers:
 
-- Full feature access
+#### Starter Tier
+**$500/month** (annual: $5,400)
+
+For teams getting started with traceability:
+- Up to 5 projects
+- Up to 10 team members
+- 100K artifacts
+- Basic impact analysis
 - Community support
-- Logo on website
+- Self-service onboarding
+- **Ideal customer**: Startup, proof-of-concept team
+
+#### Professional Tier
+**$2,000/month** (annual: $21,600)
+
+For teams with mature traceability needs:
+- Unlimited projects
+- Unlimited team members
+- 10M artifacts
+- Advanced impact analysis
+- Coverage detection
+- AI-powered link suggestions
+- Open-source CLI included
+- Priority email support
+- **Ideal customer**: Mid-market SaaS, agency with 30-100 engineers
+
+#### Enterprise Tier
+**Custom pricing** ($5,000+ per month)
+
+For large organizations with custom needs:
+- Unlimited everything
+- Self-hosted or private cloud deployment
+- SSO/SAML, LDAP integration
+- Custom integrations
+- Advanced audit & compliance
+- Dedicated support (Slack, phone)
+- Custom SLAs
+- Volume discounts (20+ licenses)
+- **Ideal customer**: Enterprise with 100+ engineers, compliance requirements
+
+### Self-Hosted Licensing
+
+Separate from SaaS offering:
+
+**Self-Hosted Base License**: $10,000/year
+- Unlimited artifacts, projects, team members
+- Everything in Professional tier features
+- Docker/Kubernetes deployment
+- Updates & security patches
+- Community support
+
+**Self-Hosted Premium**: $25,000+/year
+- Everything in base license
+- Dedicated support
+- Custom integrations
+- Advanced compliance features (HIPAA, SOC 2)
+- Priority feature requests
+
+**Self-Hosted Enterprise**: Custom pricing
+- Everything in premium
+- Guaranteed support response times (1 hour)
+- On-site training & onboarding
+- Custom development
+
+---
 
 ## Revenue Model
 
-- **Subscription-based** (primary): Monthly/annual contracts
-- **Annual discount**: 10% off annual prepay
-- **Add-ons**: Premium support, custom integrations
-- **Usage-based** (optional): $0.01 per AI agent run above limit
-- **Professional services**: Implementation, custom development ($200-300/hr)
+### Primary Revenue Streams
 
-## Financial Projections
+#### 1. SaaS Subscription (70% of revenue, growing)
+- Monthly/annual recurring revenue (MRR)
+- Starter, Professional, Enterprise tiers
+- Feature-based differentiation
+- Expansion revenue (upsells to larger tiers)
 
-### Year 1: Validation Phase
-- **Customers:** 10-20
-- **MRR:** $10-30k
-- **ARR:** $120-360k
-- **Focus:** Design partners, early adopters, case studies
-- **Spending:** Team (salaries), infrastructure, marketing
+#### 2. Self-Hosted Licensing (20% of revenue)
+- Annual licensing ($10k-$100k+)
+- High-margin, multi-year contracts
+- Targeting enterprises with data residency requirements
 
-### Year 2: Growth Phase
-- **Customers:** 50-100
-- **MRR:** $100-200k
-- **ARR:** $1.2-2.4M
-- **Focus:** Expansion, product-market fit signals
-- **Spending:** Sales, marketing, engineering
+#### 3. Professional Services (5-10% of revenue)
+- Custom integrations ($5k-$50k)
+- Implementation consulting ($200/hour)
+- Training workshops ($10k per team)
 
-### Year 3: Scale Phase
-- **Customers:** 200-300
-- **MRR:** $300-500k
-- **ARR:** $3.6-6M
-- **Focus:** Enterprise customers, market leadership
-- **Spending:** Enterprise sales, brand building, new domains
-
-## Unit Economics (Target)
-
-- **CAC (Customer Acquisition Cost):** $5,000
-- **Payback Period:** 3-4 months
-- **LTV (Lifetime Value):** $120k-300k
-- **LTV:CAC Ratio:** 24x (target: >3x is healthy, >5x is excellent)
-- **Magic Number:** (MRR growth) / Sales & Marketing = 0.5-1.0
-
-## Customer Distribution
-
-### Year 1
-- 60% Starter tier ($500/mo): $6-12k MRR
-- 30% Professional tier ($2k/mo): $12-18k MRR
-- 10% Enterprise (custom): $-5k MRR
-
-### Year 2
-- 40% Starter: $20-40k MRR
-- 40% Professional: $40-80k MRR
-- 20% Enterprise: $40-80k MRR
-
-### Year 3
-- 20% Starter: $30-60k MRR
-- 40% Professional: $120-240k MRR
-- 40% Enterprise: $150-300k MRR
-
-## Go-to-Market Strategy
-
-### Phase 1: Design Partners (Months 1-3)
-- 5-10 carefully selected beta users
-- Free/discounted access in exchange for feedback
-- Weekly 1:1 calls
-- Goal: 3-5 case studies
-
-### Phase 2: Public Launch (Months 4-8)
-- Product Hunt launch
-- Content marketing (blog, white papers)
-- Cold outreach to ICP
-- LinkedIn prospecting
-- Goal: 20+ inbound leads, 10-20 customers
-
-### Phase 3: Enterprise Sales (Months 9-18)
-- Dedicated sales team
-- Target enterprise accounts
-- Partnerships with systems integrators
-- Conference speaking
-- Goal: Enterprise customers, multi-year contracts
-
-## Acquisition Channels
-
-| Channel | Cost | Timeline | Fit |
-|---------|------|----------|-----|
-| Design Partners | Low | Fast | ✓✓✓ |
-| Content | Medium | Slow | ✓✓ |
-| Product Hunt | Low | Fast | ✓✓ |
-| Sales (cold) | High | Medium | ✓✓✓ |
-| Partnerships | Medium | Slow | ✓ |
-| Community | Low | Slow | ✓✓ |
+#### 4. Premium Support (future)
+- Premium support add-on ($500/month)
+- Guaranteed response times
+- Priority feature requests
 
 ---
 
-**Next:** See [Go-to-Market Strategy](/planning/go-to-market) for detailed GTM plan.
+## Unit Economics
+
+### Customer Acquisition Cost (CAC)
+
+#### Startup Phase (Phase 1)
+- Design partner program (no CAC, pre-revenue)
+- Early adopter focus (organic + content marketing)
+- Estimated CAC: $500-1000 (low because organic)
+- CAC payback period: 1-2 months
+
+#### Growth Phase (Phase 2-3)
+- Paid channels: content marketing, events, ads
+- Sales team for enterprise
+- Estimated CAC: $5,000-15,000
+- CAC payback period: 3-6 months for Professional tier
+
+### Lifetime Value (LTV)
+
+#### Starter Tier
+- Annual revenue: $500 × 12 = $6,000
+- Churn rate: 20% (12-month lifetime)
+- LTV: $6,000 × 5 years average × (1 - 0.2) = $24,000
+
+#### Professional Tier
+- Annual revenue: $2,000 × 12 = $24,000
+- Churn rate: 5% (longer lifetime, high stickiness)
+- LTV: $24,000 × 10 years average × (1 - 0.05) = $228,000
+
+#### Enterprise Tier
+- Annual revenue: $50,000-200,000+ (custom)
+- Churn rate: <1% (high switching costs)
+- LTV: $100,000 × 10+ years × 0.99 = $1,000,000+
+
+**Average LTV: $200,000-300,000** (mix of tiers)
+
+### LTV:CAC Ratio
+
+- **Phase 1 (design partners)**: LTV:CAC = ∞ (no CAC)
+- **Phase 2 (growth)**: LTV:CAC = 30:1 to 50:1 (healthy)
+- **Phase 3 (maturity)**: LTV:CAC = 50:1+ (excellent)
+
+Rule of thumb: LTV:CAC > 3:1 is sustainable, > 5:1 is excellent.
+
+---
+
+## Financial Projections
+
+### Conservative Scenario
+
+```
+        Phase 1          Phase 2          Phase 3
+        (M1-6)          (M7-12)         (M13-18)
+────────────────────────────────────────────────────
+MRR     $0 → $5k        $5k → $38k      $38k → $120k
+Customers 0 → 1        1 → 20          20 → 50+
+Churn   N/A             10%             5%
+CAC     —               $5k             $8k
+LTV     —               $200k           $300k
+────────────────────────────────────────────────────
+```
+
+### Year-by-Year Projections (Conservative)
+
+| Year | Phase | Customers | ARR | Burn | Runway |
+|------|-------|-----------|-----|------|---------|
+| Year 1 | Phase 1-2 | 1-20 | $5k-$450k | $180k/yr | 18+ months |
+| Year 2 | Phase 2-3 | 20-60 | $450k-$1.5M | $200k/yr | Profitability |
+| Year 3 | Phase 3 | 60-150+ | $1.5M-$5M | — | Profitable |
+
+### Optimistic Scenario
+
+With strong product-market fit and aggressive sales:
+
+| Year | Customers | ARR | Growth |
+|------|-----------|-----|--------|
+| Year 1 | 30 | $1M | — |
+| Year 2 | 80 | $4M | 4x |
+| Year 3 | 200+ | $12M | 3x |
+
+---
+
+## Pricing Justification
+
+### Why These Price Points?
+
+#### Starter at $500/month
+- **Competitive**: Similar to GitHub, Linear (issue tracking)
+- **Accessible**: Affordable for startups, side projects
+- **Viable**: Covers some infrastructure + support costs
+- **Upsell path**: Easy to upgrade to Professional as team grows
+
+#### Professional at $2,000/month
+- **Value-based**: Teams save 10-20 hrs/month ([$100-200 per hour](methodology))
+- **Competitive**: Similar to Jira enterprise add-ons
+- **Profitable**: Covers engineering + support + infrastructure
+- **Volume** Growth from Starter tier
+
+#### Enterprise (custom)
+- **Complex needs**: Custom integrations, deployment, compliance
+- **Relationship-driven**: Requires sales, legal, support
+- **High LTV**: Multi-year contracts, low churn
+- **Negotiated**: Based on company size, deployment, features
+
+### Why SaaS + Self-Hosted?
+
+**SaaS advantages**:
+- Lower barrier to entry (no infrastructure)
+- Recurring revenue
+- Automatic updates
+- Easier to sell to teams
+
+**Self-hosted advantages**:
+- High-margin contracts
+- Attracts enterprises (data residency, compliance)
+- Premium pricing possible
+- Diverse revenue stream
+
+---
+
+## Go-to-Market Revenue
+
+### Phase 1: Design Partner Revenue
+
+**Design Partner Program Structure**:
+- 5-10 design partners selected
+- Special pricing: 50% off Professional tier
+- Cost to partner: $1,000/month ($500 discount)
+- Benefit to partner: Influence product direction, priority support
+- Timeline: M4-6
+
+**Phase 1 Revenue Projection**:
+- 8 design partners × $1,000/month = $8,000 MRR
+- Annual revenue: $96,000
+- Purpose: Validate product-market fit, fund team through Phase 1
+
+### Phase 2: Market Launch
+
+**Launch Channels**:
+1. **Content Marketing** (60% of new customers)
+   - Blog posts (1-2 per week)
+   - YouTube tutorials
+   - Industry guides
+   - Case studies from design partners
+
+2. **Product Hunt** (20% of new customers)
+   - #1 product launch goal
+   - Early adopter audience
+   - Organic signups
+
+3. **Community** (20% of new customers)
+   - GitHub discussions
+   - Discord community
+   - Hacker News, Dev.to
+   - Email newsletter
+
+**Phase 2 Revenue Projection**:
+- M7: $5k MRR (design partners + early adopters)
+- M8: $8k MRR
+- M9: $12k MRR
+- M10: $18k MRR (growing sales team)
+- M11: $25k MRR
+- M12: $38k MRR
+- Total Phase 2 revenue: $145k
+
+### Phase 3: Scaling
+
+**Enterprise Sales**:
+- Hire dedicated sales team (1-2 reps)
+- Target mid-market (100-500 engineers)
+- Contract size: $30k-100k+ annually
+- Sales cycle: 2-4 months
+
+**Phase 3 Revenue Projection**:
+- Enterprise contracts start closing M15+
+- $100k+ monthly revenue by end of year 2
+
+---
+
+## Monetization Opportunities (Future)
+
+### 1. Premium Support
+- Current: Included in enterprise tier
+- Future: $500/month add-on to other tiers
+- Potential revenue: $50k-100k annually
+
+### 2. Advanced Analytics
+- Current: Basic in Professional
+- Future: Advanced package ($1,000/month)
+- Potential revenue: $100k+ annually
+
+### 3. Marketplace
+- Third-party integrations (take 30% cut)
+- Custom domains & plugins
+- Potential revenue: $50k+ annually
+
+### 4. Compliance as a Service
+- HIPAA, SOC 2 compliance packages
+- Custom audit templates
+- Potential revenue: $100k+ annually
+
+---
+
+## Funding Strategy
+
+### Phase 1 Funding
+- **Runway needed**: $180k (6 months at $30k/month)
+- **Sources**: Founder capital, Friends & Family, Pre-seed
+- **Target**: $250k-500k
+- **Use**: Team (3-4 engineers), infrastructure, design partners
+
+### Phase 2 Funding
+- **Runway needed**: $240k (6 months at $40k/month)
+- **Revenue**: $145k offsets $100k burn
+- **Net funding needed**: $95k
+- **Sources**: Design partner revenue covers most
+- **Potential**: Series A if strong PMF signals ($2M-5M)
+
+### Phase 3 Funding
+- **Revenue**: $450k+ covers $50k/month burn
+- **Status**: Positive unit economics, potential profitability
+- **Potential**: Series B if aiming for rapid scaling ($10M+)
+
+---
+
+## Key Assumptions
+
+1. **Design partners validate**: 5-10 partners actively use by M6
+2. **Churn is low**: < 10% annually for paid tiers
+3. **Expansion revenue**: 30% of revenue from upgrades/add-ons
+4. **Enterprise segment**: Viable at $50k+ annual contracts
+5. **Market size**: $5B+ TAM (software delivery tools)
+
+---
+
+## Success Metrics
+
+| Metric | Phase 1 | Phase 2 | Phase 3 |
+|--------|---------|---------|---------|
+| MRR | $5k | $38k | $120k+ |
+| ARR | $60k | $450k | $1.5M+ |
+| Customers | 1-10 | 20-50 | 50-150+ |
+| Churn | — | 10% | 5% |
+| NPS | ≥50 | ≥60 | ≥70 |
+| CAC payback | <2 months | 3-6 months | 3-6 months |
+
+---
+
+## Next Steps
+
+1. **Validate ICP**: Interview potential customers on pricing willingness
+2. **Design partner recruiting**: Start outreach (target M3-4 start)
+3. **Financial modeling**: Build detailed projections with team
+4. **Fundraising**: Prepare materials for seed round (target M2-3)
+
+See [Go-to-Market Strategy](/planning/go-to-market) for customer acquisition details.

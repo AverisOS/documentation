@@ -1,0 +1,327 @@
+---
+title: "Domains Overview"
+description: "Domain-bounded contexts in AverisOS"
+---
+
+# Domains Overview
+
+AverisOS is organized into domain-bounded contexts following Domain-Driven Design principles. Each domain owns its business logic and communicates with other domains through events.
+
+---
+
+## Domain Map
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  AUTHENTICATION          TRACEABILITY        GIT INTEGRATION│
+│  ├── Register User       ├── Create Artifact ├── Sync      │
+│  ├── Login               ├── Link Artifacts  └── Detect     │
+│  ├── Reset Password      ├── Impact Analysis                │
+│  └── Manage Permissions  └── Find Related                   │
+│                                                             │
+│                    ↓ Events ↓                              │
+│                                                             │
+│  TESTING DOMAIN          EMAIL DOMAIN                       │
+│  ├── Record Test Run     ├── Send Notification             │
+│  └── Link to Code        └── Alert Watchers                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Shared Infrastructure
+
+All domains use:
+- **Result Monad**: Success/failure error handling
+- **Event Dispatcher**: Cross-domain communication
+- **Repositories**: Data access abstraction
+- **Dry-rb**: Types, validation, structs
+
+See [Monorepo Structure](../architecture/monorepo-structure.mdx) for directory layout.
+
+---
+
+## Phase 1 Domains
+
+### 1. Traceability (Core)
+
+**Responsibility**: Manage artifacts and their relationships.
+
+**Key Operations**:
+- Create artifacts (requirements, features, code, tests, releases)
+- Link artifacts (implements, validates, depends_on, related_to)
+- Analyze impact (what breaks if this changes?)
+- Find related artifacts (what's connected?)
+
+**Events Emitted**:
+- `ArtifactCreated` (when new artifact is created)
+- `ArtifactsLinked` (when relationship is established)
+- `ArtifactStatusChanged` (when status updates)
+
+**Subscribers**:
+- Email (notify watchers)
+- Git (check for related commits)
+- Testing (check test coverage)
+
+**Database Models**:
+- `Artifact` (requirements, features, code, tests, etc.)
+- `ArtifactRelationship` (connections between artifacts)
+
+### 2. Authentication
+
+**Responsibility**: User registration, login, permissions.
+
+**Key Operations**:
+- Register user (sign up)
+- Login (authenticate)
+- Reset password (forgot password flow)
+- Manage permissions (who can do what in projects)
+
+**Events Emitted**:
+- `UserRegistered` (new user signed up)
+- `UserLoggedIn` (user authenticated)
+- `PasswordReset` (user reset their password)
+
+**Database Models**:
+- `User` (user accounts)
+- `ProjectMembership` (who belongs to which projects)
+- `Permission` (who can do what)
+
+### 3. Git Integration
+
+**Responsibility**: Sync commits, auto-detect related artifacts.
+
+**Key Operations**:
+- Sync commits (from GitHub/GitLab)
+- Detect related artifacts (find requirement from commit message)
+- Link commit to artifact (create manual link)
+
+**Events Subscribed To**:
+- `ArtifactCreated` (check for related commits)
+- `ArtifactsLinked` (verify link is correct)
+
+**Events Emitted**:
+- `CommitSynced` (new commit detected)
+- `ArtifactLinkedFromCommit` (auto-detected link)
+
+**External Dependencies**:
+- GitHub/GitLab API (fetch commits)
+- Webhook handlers (receive push events)
+
+### 4. Testing
+
+**Responsibility**: Record test runs, link tests to requirements.
+
+**Key Operations**:
+- Record test run (capture test execution)
+- Link test to requirement (this test validates that requirement)
+- Check coverage (are we testing the requirements we wrote?)
+
+**Events Subscribed To**:
+- `ArtifactsLinked` (check if it's test-to-requirement link)
+- `ArtifactCreated` (check if there are tests for it)
+
+**Events Emitted**:
+- `TestRecorded` (new test result)
+- `CoverageAlert` (requirement has no tests)
+
+### 5. Email
+
+**Responsibility**: Send notifications, alerts, digests.
+
+**Key Operations**:
+- Send notification (single email)
+- Send alert (urgent notification)
+- Send digest (daily/weekly summary)
+
+**Events Subscribed To**:
+- `ArtifactCreated` (notify watchers)
+- `ArtifactsLinked` (notify related people)
+- `TestRecorded` (notify if coverage changed)
+- `ArtifactStatusChanged` (notify if requirement is blocked)
+
+**External Dependencies**:
+- Email service (SendGrid, SES, or SMTP)
+
+---
+
+## Future Domains (Phase 2+)
+
+### CI/CD Integration
+- Trigger CI/CD on artifact changes
+- Report build status back
+- Link build artifacts to requirements
+
+### Analytics
+- Track artifact relationships over time
+- Report on team velocity
+- Predict impact of changes
+
+### AI Enhancement
+- Auto-link requirements to code
+- Suggest related artifacts
+- Classify artifact types
+
+### Audit & Compliance
+- Record all changes
+- Generate audit reports
+- Enforce policies
+
+---
+
+## Domain Anatomy
+
+Each domain has this structure:
+
+```
+domains/[domain_name]/
+├── domain/
+│   ├── [domain]_service.rb          # Service entry point
+│   ├── [operation_name]/            # Operation 1
+│   │   ├── request.rb
+│   │   ├── verify.rb
+│   │   ├── validate.rb
+│   │   └── command.rb
+│   ├── [another_operation]/         # Operation 2
+│   │   └── ...
+│   └── events/                      # Domain events
+│       ├── [event_name].rb
+│       └── ...
+├── spec/
+│   ├── [operation]_spec.rb
+│   └── ...
+└── README.md                        # Domain documentation
+```
+
+---
+
+## How Domains Communicate
+
+### ❌ WRONG: Direct Import
+```ruby
+# Don't do this!
+module GitIntegration
+  class SyncCommits
+    def call(commit)
+      artifact = Traceability::FindArtifact.call(commit.message)  # ❌
+    end
+  end
+end
+```
+
+**Problem**: Tight coupling, hard to test, hard to extract
+
+### ✓ RIGHT: Event-Driven
+```ruby
+# Traceability emits event
+module Traceability
+  class CreateArtifact::Command
+    def call(request)
+      artifact = create_artifact(request)
+      @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+    end
+  end
+end
+
+# Git domain subscribes
+# config/initializers/event_subscriptions.rb
+event_dispatcher.subscribe(ArtifactCreated) do |event|
+  GitIntegration::CheckRelatedCommits.call(event.artifact_id)
+end
+```
+
+**Benefit**: Loose coupling, easy to test, easy to extract
+
+---
+
+## Phase 1 Scope
+
+**In Phase 1**, we focus on:
+- ✓ Traceability (core value)
+- ✓ Authentication (basic auth)
+- ✓ Manual linking (no AI yet)
+- ✓ Simple heuristics (commit message matching)
+
+**Not in Phase 1**:
+- ❌ AI-powered linking (Phase 2)
+- ❌ Full Git integration (Phase 2)
+- ❌ Advanced testing workflows (Phase 2)
+- ❌ CI/CD integration (Phase 3)
+
+See [ADR-007: Phase 1 Focus - Traceability Over AI](../decisions/adr-007-phase-1-focus.mdx)
+
+---
+
+## Adding a New Domain
+
+When you need to add a domain:
+
+1. **Create directory**:
+   ```bash
+   mkdir -p domains/new_domain/domain/events
+   mkdir -p domains/new_domain/spec
+   ```
+
+2. **Create service entry point**:
+   ```ruby
+   # domains/new_domain/domain/new_domain_service.rb
+   module NewDomain
+     class NewDomainService
+       def initialize(container:)
+         @container = container
+       end
+
+       def some_operation(params)
+         # Orchestrate Request/Verify/Validate/Command
+       end
+     end
+   end
+   ```
+
+3. **Create operations** (see [Patterns](../architecture/patterns.mdx))
+
+4. **Register in container**:
+   ```ruby
+   # config/initializers/container.rb
+   Container.register('domains.new_domain') do
+     NewDomain::NewDomainService.new(container: Container)
+   end
+   ```
+
+5. **Subscribe to events** (if needed):
+   ```ruby
+   # config/initializers/event_subscriptions.rb
+   event_dispatcher.subscribe(SomeEvent) do |event|
+     NewDomain::NewDomainService.new(container: Container).handle_event(event)
+   end
+   ```
+
+---
+
+## Domain Responsibilities Matrix
+
+| Operation | Responsibility | Phase |
+|-----------|---|---|
+| Create artifact | Traceability | 1 |
+| Link artifacts | Traceability | 1 |
+| Impact analysis | Traceability | 1 |
+| Find related | Traceability | 1 |
+| User registration | Authentication | 1 |
+| User login | Authentication | 1 |
+| Manage permissions | Authentication | 1 |
+| Manual commit link | Git Integration | 1 |
+| Auto-detect links | Git Integration | 2 |
+| Record test run | Testing | 2 |
+| AI-powered linking | AI | 2 |
+| CI/CD integration | CI/CD | 3 |
+
+---
+
+## References
+
+- [Monorepo Structure](../architecture/monorepo-structure.mdx) — How domains are organized
+- [Design Principles](../architecture/design-principles.mdx) — Why we organize this way
+- [Patterns & Examples](../architecture/patterns.mdx) — How to implement operations
+- [Architecture Overview](../architecture/overview.mdx) — Technical architecture

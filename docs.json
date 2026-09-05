@@ -4,34 +4,32 @@
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "colors": {
     "primary": "#0D9488",
-    "light": "#0FCAD3",
-    "dark": "#0D9488",
-    "anchors": {
-      "from": "#0D9488",
-      "to": "#0FCAD3"
+    "light": "#14B8A6",
+    "dark": "#0F766E",
+    "ultraLight": "#CCFBF1",
+    "ultraDark": "#134E4A",
+    "background": {
+      "light": "#FFFFFF",
+      "dark": "#0F172A"
     }
   },
-  "topbarLinks": [
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://github.com/AverisOS/averis-os"
+  },
+  "anchors": [
     {
       "name": "GitHub",
-      "url": "https://github.com/AverisOS"
-    }
-  ],
-  "tabs": [
-    {
-      "name": "Planning",
-      "url": "planning"
+      "icon": "github",
+      "url": "https://github.com/AverisOS/averis-os"
     },
     {
-      "name": "Architecture",
-      "url": "architecture"
-    },
-    {
-      "name": "Domains",
-      "url": "domains"
+      "name": "Discord",
+      "icon": "discord",
+      "url": "https://discord.gg/averis-os"
     }
   ],
   "navigation": [
@@ -39,12 +37,12 @@
       "group": "Getting Started",
       "pages": [
         "index",
-        "overview",
-        "quick-start"
+        "getting-started/overview",
+        "getting-started/quick-start"
       ]
     },
     {
-      "group": "Planning",
+      "group": "Planning & Strategy",
       "pages": [
         "planning/roadmap",
         "planning/business-model",
@@ -63,14 +61,13 @@
     {
       "group": "Decisions",
       "pages": [
-        "decisions/overview",
         "decisions/adr-001-ddd",
         "decisions/adr-002-result-monad",
         "decisions/adr-003-monorepo",
         "decisions/adr-004-rest-api",
         "decisions/adr-005-dry-rb",
-        "decisions/adr-006-events",
-        "decisions/adr-007-phase1-focus",
+        "decisions/adr-006-event-dispatcher",
+        "decisions/adr-007-phase-1-focus",
         "decisions/adr-008-open-source",
         "decisions/adr-009-design-partners",
         "decisions/adr-010-self-hosted"
@@ -79,11 +76,7 @@
     {
       "group": "Domains",
       "pages": [
-        "domains/overview",
-        "domains/traceability",
-        "domains/authentication",
-        "domains/git-integration",
-        "domains/testing"
+        "domains/overview"
       ]
     },
     {
@@ -97,7 +90,15 @@
     }
   ],
   "footerSocials": {
+    "twitter": "https://twitter.com/averis_os",
     "github": "https://github.com/AverisOS",
-    "twitter": "https://twitter.com/AverisOS"
+    "linkedin": "https://linkedin.com/company/averis-os"
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true
+  },
+  "search": {
+    "prompt": "Search AverisOS documentation..."
   }
 }

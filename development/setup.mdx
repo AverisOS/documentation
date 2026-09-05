@@ -1,0 +1,362 @@
+---
+title: "Local Development Setup"
+description: "How to set up AverisOS development environment locally"
+---
+
+# Local Development Setup
+
+Get AverisOS running on your machine in 5 minutes.
+
+## Prerequisites
+
+- **Ruby**: 3.2.0 or higher
+- **PostgreSQL**: 14+
+- **Redis**: 7+
+- **Node.js**: 18+ (for JavaScript dependencies)
+- **Git**: Any recent version
+
+### macOS
+```bash
+# Using Homebrew
+brew install ruby postgresql redis node
+brew services start postgresql
+brew services start redis
+```
+
+### Linux (Ubuntu/Debian)
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install ruby ruby-dev postgresql postgresql-contrib redis-server nodejs
+
+# Start services
+sudo systemctl start postgresql
+sudo systemctl start redis-server
+```
+
+### Windows
+- Use WSL2 (Windows Subsystem for Linux)
+- Follow Ubuntu/Debian steps above
+
+---
+
+## Clone and Setup
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/AverisOS/averis-os.git
+cd averis-os
+```
+
+### 2. Install Dependencies
+```bash
+# Install Ruby gems
+bundle install
+
+# Install JavaScript dependencies
+npm install
+```
+
+### 3. Setup Database
+```bash
+# Create and migrate database
+bundle exec rails db:create
+bundle exec rails db:migrate
+
+# (Optional) Load sample data
+bundle exec rails db:seed
+```
+
+### 4. Setup Environment
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your settings (optional for local dev)
+# Default values work for local development
+```
+
+### 5. Start Development Server
+```bash
+# In one terminal
+bundle exec rails server
+
+# In another terminal (for background jobs)
+bundle exec sidekiq
+
+# In a third terminal (optional, for frontend)
+npm run dev
+```
+
+### 6. Verify Setup
+```bash
+# Open browser
+open http://localhost:3000
+
+# You should see: AverisOS welcome page
+```
+
+---
+
+## Development Workflow
+
+### Running Tests
+```bash
+# Run all tests
+bundle exec rspec
+
+# Run specific file
+bundle exec rspec spec/domains/traceability/create_artifact_spec.rb
+
+# Run with coverage
+COVERAGE=true bundle exec rspec
+
+# Run only fast tests
+bundle exec rspec --tag ~slow
+```
+
+### Code Quality
+```bash
+# Check code style
+bundle exec rubocop
+
+# Fix style issues automatically
+bundle exec rubocop -a
+
+# Run all checks
+bundle exec bundle audit check --update
+```
+
+### Database Management
+```bash
+# Create new migration
+bundle exec rails g migration CreateArtifacts
+
+# Run migrations
+bundle exec rails db:migrate
+
+# Rollback one migration
+bundle exec rails db:rollback
+
+# Reset database (development only!)
+bundle exec rails db:drop db:create db:migrate db:seed
+```
+
+### Working with Domains
+
+Each domain is in `domains/[domain_name]/`. To understand a domain:
+
+```bash
+# Explore Traceability domain
+ls domains/traceability/
+
+# Run domain tests
+bundle exec rspec domains/traceability/spec/
+
+# View domain service
+cat domains/traceability/domain/traceability_service.rb
+```
+
+---
+
+## Useful Commands
+
+### Rails Console
+```bash
+# Open Rails console
+bundle exec rails c
+
+# Create artifact
+artifact = Artifact.create(
+  project_id: 1,
+  type: 'requirement',
+  title: 'User can login',
+  description: 'Lorem ipsum',
+  owner_id: 1
+)
+
+# Query artifacts
+Artifact.all
+Artifact.where(type: 'requirement')
+```
+
+### Seed Data
+```bash
+# Load seed data
+bundle exec rails db:seed
+
+# Clean and reseed
+bundle exec rails db:drop db:create db:migrate db:seed
+```
+
+### Background Jobs
+```bash
+# Check Sidekiq dashboard
+open http://localhost:3000/sidekiq
+
+# Run jobs synchronously in tests
+Sidekiq::Testing.inline!
+```
+
+---
+
+## Troubleshooting
+
+### Port Already in Use
+```bash
+# Find process on port 3000
+lsof -i :3000
+
+# Kill it
+kill -9 <PID>
+```
+
+### Database Connection Error
+```bash
+# Check PostgreSQL is running
+brew services list  # macOS
+systemctl status postgresql  # Linux
+
+# Check database exists
+createdb -l | grep averis_os
+
+# Create if missing
+bundle exec rails db:create
+```
+
+### Redis Connection Error
+```bash
+# Check Redis is running
+redis-cli ping
+# Should return: PONG
+
+# Or start it
+redis-server
+```
+
+### Gems Not Installing
+```bash
+# Update bundler
+gem update bundler
+
+# Clean and reinstall
+bundle clean --force
+bundle install
+```
+
+### Tests Failing
+```bash
+# Reset test database
+bundle exec rails db:test:prepare
+
+# Run with verbose output
+bundle exec rspec -f d
+```
+
+---
+
+## Development Tools
+
+### Recommended Editor Extensions
+
+**VS Code**:
+- Ruby (by Shopify)
+- Rails (by bito)
+- RSpec (by sianglim)
+- Prettier (code formatter)
+- GitHub Copilot
+
+**RubyMine**:
+- Built-in Rails support
+- Excellent debugging
+- Code inspection
+
+### Debugging
+
+#### Debug with pry
+```ruby
+# Add to code
+require 'pry'; binding.pry
+
+# Run code, breakpoint will pause execution
+# In pry console: step, next, continue
+```
+
+#### Debug with debugger (Ruby 2.7+)
+```ruby
+# Add to code
+debugger
+
+# Run tests
+bundle exec rspec spec/file_spec.rb
+
+# Debugger will pause at breakpoint
+```
+
+#### View logs
+```bash
+# Tail logs
+tail -f log/development.log
+
+# Clear logs
+> log/development.log
+```
+
+---
+
+## Docker Setup (Alternative)
+
+If you prefer Docker:
+
+```bash
+# Build image
+docker-compose build
+
+# Start services
+docker-compose up
+
+# In another terminal, run migrations
+docker-compose exec web rails db:migrate db:seed
+
+# Access web at http://localhost:3000
+```
+
+---
+
+## Production-Like Environment
+
+To test locally like production:
+
+```bash
+# Build assets
+bundle exec rails assets:precompile
+
+# Run in production mode
+RAILS_ENV=production bundle exec rails server
+
+# or with foreman
+gem install foreman
+foreman start -f Procfile.dev
+```
+
+---
+
+## Useful Resources
+
+- **Rails Guides**: https://guides.rubyonrails.org
+- **RSpec Docs**: https://rspec.info
+- **Dry-rb**: https://dry-rb.org
+- **Ruby Docs**: https://ruby-doc.org
+
+---
+
+## Next Steps
+
+Once setup is complete:
+
+1. **Read [CONTRIBUTING.md](./contributing.mdx)** for contribution guidelines
+2. **Explore [domains](../domains/)** to understand architecture
+3. **Read [Design Principles](../architecture/design-principles.mdx)** to understand patterns
+4. **Check out [Patterns & Examples](../architecture/patterns.mdx)** for code examples
+
+Happy coding! 🚀

@@ -1,0 +1,247 @@
+---
+title: "ADR-003: Monorepo for Domains"
+description: "Architecture Decision Record - Repository structure strategy"
+---
+
+# ADR-003: Monorepo for Domains
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+AverisOS has multiple domains (authentication, traceability, git integration, testing, email). Should each be in a separate repository or one monorepo?
+
+### Separate Repos (Polyrepo)
+- Each domain gets its own repository
+- Teams own their domain end-to-end
+- Clear separation, no dependencies
+
+### Single Repo (Monorepo)
+- All domains in one repository
+- Shared code is easy to maintain
+- Cross-domain changes in single PR
+- Simpler operations
+
+---
+
+## Decision
+
+**Monorepo in Phase 1-2**. Extract to separate repos in Phase 3+ when:
+- Domain has independent deployment needs
+- Different SLA requirements
+- Different scaling patterns
+- Team ownership is clear
+
+### Why Now?
+- **MVP speed**: Easier to develop and test domains together
+- **Shared code**: Common patterns, error types, repositories in one place
+- **Cross-domain changes**: Single PR for changes affecting multiple domains
+- **Simpler operations**: One CI/CD pipeline, one deployment
+- **Proven boundary**: Clear domain structure makes extraction straightforward
+
+---
+
+## Alternatives Considered
+
+### 1. Polyrepo (Separate Repo per Domain)
+**Pros**: Clear ownership, independent scaling, team autonomy  
+**Cons**: Duplicated code, harder cross-domain changes, complex CI/CD setup
+
+**Verdict**: Better long-term, but too complex for MVP.
+
+### 2. Monorepo (All together)
+**Pros**: Fast development, shared code, simple ops, easy cross-domain changes  
+**Cons**: Can become monolithic if not careful, requires discipline
+
+**Verdict**: Perfect for Phase 1-2.
+
+### 3. Hybrid (Start monorepo, extract later)
+**Pros**: Best of both worlds
+**Cons**: Requires planning for extraction
+
+**Verdict**: This is our approach.
+
+---
+
+## Rationale
+
+### ✓ MVP Speed
+Single repo means:
+- One `git clone`, one setup.sh
+- One test suite (catch integration bugs early)
+- Easy to add features across domains
+- Simpler onboarding for new team members
+
+### ✓ Shared Code
+Common code lives in one place:
+```
+domains/shared/
+├── lib/
+│   ├── result.rb           # Result monad
+│   ├── event_dispatcher.rb # Cross-domain communication
+│   └── ...
+├── repositories/           # Base repository class
+└── errors/                 # Common error types
+```
+
+No copy-paste, no version mismatches.
+
+### ✓ Cross-Domain Changes
+When artifact creation needs to emit an event that email subscribes to, it's one PR:
+```
+commit: feat: emit ArtifactCreated event on artifact creation
+- Traceability domain: emit event in CreateArtifact::Command
+- Email domain: subscribe to ArtifactCreated in event_subscriptions.rb
+- Shared: define ArtifactCreated event class
+```
+
+With polyrepo, this becomes 2-3 PRs coordinated across repos.
+
+### ✓ Clear Boundaries
+Even in monorepo, domains are strictly bounded:
+```ruby
+# ❌ Not allowed
+Traceability::CreateArtifact.call(...)  # Don't import other domains
+
+# ✓ Correct
+@event_dispatcher.dispatch(ArtifactCreated.new(...))  # Emit event
+```
+
+Enforced by code review and static analysis.
+
+### ✓ Future Extraction
+Because domains are already isolated, extraction later is straightforward:
+1. Create new repo with domain code
+2. Extract shared code to gem (`averis-os-core`)
+3. Replace direct calls with HTTP API
+4. Keep event-based communication the same
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Faster MVP**: One code base, one deploy, faster shipping
+- **Easier collaboration**: Teams can work on related features together
+- **Shared infrastructure**: Common patterns, one setup
+- **Simpler operations**: One CI/CD, one deployment
+
+### ⚠️ Negative
+- **Can become monolithic**: If discipline weakens, code can leak between domains
+- **Requires strict boundaries**: Must enforce domain isolation through code review
+- **One deployment**: Can't deploy domains independently (yet)
+- **Larger codebase**: Takes longer to clone/test as it grows
+
+### 🛡️ Mitigation
+- **Enforce boundaries** through code review
+- **Test domains independently** (each has its own test suite)
+- **Document domain contracts** (what events it emits/subscribes to)
+- **Plan extraction early**: Keep domains ready to extract
+
+---
+
+## Structure
+
+```
+averis-os/
+├── domains/
+│   ├── shared/              # Shared code (Result monad, EventDispatcher, etc.)
+│   ├── authentication/      # Domain: User registration, login
+│   ├── traceability/        # Domain: Artifacts and relationships
+│   ├── git_integration/     # Domain: Sync commits, detect related artifacts
+│   ├── testing/             # Domain: Record test runs, link to requirements
+│   └── email/               # Domain: Notifications, alerts
+├── app/
+│   ├── controllers/         # HTTP routing
+│   ├── models/              # Persistence models
+│   └── serializers/         # JSON serializers
+├── config/
+│   ├── initializers/
+│   │   ├── container.rb     # DI container setup
+│   │   └── event_subscriptions.rb  # Event subscriptions
+│   └── ...
+└── ...
+```
+
+See [Monorepo Structure](../architecture/monorepo-structure.mdx) for full details.
+
+---
+
+## Extraction Plan (Phase 3+)
+
+When ready to extract a domain:
+
+1. **Create new repository**:
+   ```bash
+   gh repo create averis-os-traceability --private
+   ```
+
+2. **Move domain code**:
+   ```bash
+   git filter-branch --prune-empty --subdirectory-filter domains/traceability -- --all
+   ```
+
+3. **Extract shared code to gem**:
+   ```ruby
+   # Create averis-os-core gem with Result, EventDispatcher, etc.
+   ```
+
+4. **Replace with HTTP client**:
+   ```ruby
+   # Instead of importing domain code, call HTTP API
+   TraceabilityClient.create_artifact(project_id, type, title)
+   ```
+
+5. **Keep event communication**:
+   - Original monorepo publishes events to message queue
+   - Extracted service subscribes to same queue
+   - No code changes to event handling
+
+---
+
+## Enforcement
+
+To maintain domain isolation:
+
+### Code Review
+- Reject imports from other domains (except `shared/`)
+- Require event-driven communication across domains
+
+### Static Analysis
+```ruby
+# .rubocop.yml
+- Check that Traceability doesn't import from Authentication
+- Check that domains only import from shared/
+```
+
+### Testing
+- Each domain tests independently
+- Integration tests verify event communication
+
+---
+
+## Monitoring
+
+As the monorepo grows, monitor:
+- **Build time**: If tests take >10 min, consider splitting
+- **Codebase size**: If >50k lines, consider extraction
+- **Team growth**: If >3 teams, might be time to polyrepo
+
+These are signals, not hard rules.
+
+---
+
+## Related Decisions
+
+- [ADR-006: Event Dispatcher for Cross-Domain Communication](./adr-006-event-dispatcher.mdx)
+
+---
+
+## References
+
+- [Monorepo Structure](../architecture/monorepo-structure.mdx)
+- [Design Principles - Events for Cross-Domain Communication](../architecture/design-principles.mdx#7-events-for-cross-domain-communication)

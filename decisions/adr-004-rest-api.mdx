@@ -1,0 +1,277 @@
+---
+title: "ADR-004: REST API (Not GraphQL) for Phase 1"
+description: "Architecture Decision Record - API design approach"
+---
+
+# ADR-004: REST API (Not GraphQL) for Phase 1
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+Should the initial AverisOS API be REST or GraphQL?
+
+### REST
+- Simple, well-understood, standard in industry
+- Easy to cache with HTTP semantics
+- One endpoint per resource
+- Standard HTTP methods
+
+### GraphQL
+- Flexible queries, clients request exactly what they need
+- Single query can fetch related data
+- Excellent for complex UIs
+- Growing ecosystem
+
+---
+
+## Decision
+
+**REST API for Phase 1**. Add GraphQL in Phase 3+ if client needs are complex.
+
+### Why REST Now?
+- **Simplicity**: REST is simpler to implement, test, and document
+- **Caching**: HTTP caching works perfectly with REST
+- **Familiarity**: Most developers know REST well
+- **Speed**: Faster to build than GraphQL
+- **MVP fit**: REST is sufficient for our initial feature set
+
+### Why Not GraphQL Yet?
+- **Complexity**: GraphQL adds significant complexity
+- **N+1 queries**: Requires careful implementation to avoid
+- **Tooling**: More tooling and configuration needed
+- **Learning curve**: Team needs to learn GraphQL patterns
+- **Time to ship**: Would delay MVP
+
+---
+
+## Alternatives Considered
+
+### 1. REST (This Decision)
+**Pros**: Simple, fast, standard, easy to cache  
+**Cons**: Less flexible, may need multiple endpoints for complex queries
+
+**Verdict**: Right for Phase 1.
+
+### 2. GraphQL from Day 1
+**Pros**: Flexible, efficient for UIs, future-proof  
+**Cons**: Complexity, N+1 risk, slower to ship
+
+**Verdict**: Too heavy for MVP.
+
+### 3. Hybrid (REST + GraphQL)
+**Pros**: Flexibility, no need to migrate later  
+**Cons**: Duplicate code, maintenance burden
+
+**Verdict**: Too much overhead.
+
+---
+
+## Rationale
+
+### ✓ Simplicity
+REST is simple and standard:
+```ruby
+POST   /api/v1/projects/1/artifacts
+GET    /api/v1/projects/1/artifacts
+GET    /api/v1/artifacts/123
+PATCH  /api/v1/artifacts/123
+DELETE /api/v1/artifacts/123
+```
+
+Everyone understands these semantics.
+
+### ✓ Caching
+REST works beautifully with HTTP caching:
+```ruby
+GET /api/v1/artifacts/123
+  Cache-Control: max-age=3600
+  ETag: "abc123"
+```
+
+Browsers and proxies handle caching automatically.
+
+### ✓ Performance
+For MVP features, REST is sufficient:
+- List artifacts (single endpoint)
+- Get artifact detail (single endpoint)
+- Link artifacts (single endpoint)
+- Analyze impact (single endpoint)
+
+No need for complex queries.
+
+### ✓ Time to Ship
+REST endpoints are faster to build:
+- Define routes in `config/routes.rb`
+- Create controller actions
+- Serialize with `render json: ...`
+- Test with standard HTTP testing
+
+GraphQL would add weeks of setup.
+
+### ✓ Familiarity
+Most developers know REST:
+- Rails generators work well
+- Standard tools (curl, Postman, Insomnia)
+- Easy to document with OpenAPI
+- Easy to test with RSpec
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Faster shipping**: REST is quicker to implement
+- **Standard tooling**: Works with standard HTTP tools
+- **Simple caching**: HTTP caching is free
+- **Familiar to developers**: No learning curve
+- **Easy to document**: Standard API documentation tools
+
+### ⚠️ Negative
+- **Less flexible for clients**: May need multiple endpoints
+- **No ability to select fields**: Always get full resource
+- **May need custom endpoints**: Can't build flexible queries
+- **Potential N+1 on client side**: Client makes multiple requests
+
+### 🛡️ Mitigation
+- **Design endpoints well**: Think through common query patterns
+- **Use includes/expand**: Allow clients to request related data
+- **Add GraphQL later**: In Phase 3+, add GraphQL layer on top of REST
+- **Monitor client needs**: Watch for patterns that GraphQL would solve
+
+---
+
+## API Design Principles
+
+### Standard REST Resources
+```
+/api/v1/projects/:project_id/artifacts
+/api/v1/artifacts/:id
+/api/v1/artifacts/:id/relationships
+/api/v1/artifacts/:id/impact-analysis
+```
+
+### Standard Methods
+- `GET` — List or retrieve
+- `POST` — Create
+- `PATCH` — Update
+- `DELETE` — Delete
+
+### Standard Response Format
+```json
+{
+  "data": {
+    "id": "123",
+    "type": "artifact",
+    "attributes": {
+      "title": "User can login",
+      "status": "active"
+    },
+    "relationships": {
+      "project": {
+        "data": { "type": "project", "id": "1" }
+      }
+    }
+  }
+}
+```
+
+### Standard Error Format
+```json
+{
+  "errors": [
+    {
+      "status": 422,
+      "code": "invalid_input",
+      "title": "Validation Failed",
+      "detail": "Title is required"
+    }
+  ]
+}
+```
+
+---
+
+## Adding GraphQL Later
+
+When/if we need GraphQL (Phase 3+):
+
+1. **Keep REST endpoints** (don't remove them)
+2. **Build GraphQL layer on top**:
+   ```ruby
+   # GraphQL schema queries from REST domain services
+   class Artifact < Types::ObjectType
+     field :id, ID, null: false
+     field :title, String, null: false
+     # ... GraphQL translates to REST calls or domain service calls
+   end
+   ```
+3. **No code changes to domain logic** — REST and GraphQL both call same services
+
+---
+
+## Example REST Implementation
+
+### List Artifacts
+```ruby
+GET /api/v1/projects/1/artifacts?status=active&limit=20
+```
+
+```ruby
+# Controller
+def index
+  service = AverisOS::Container['domains.traceability']
+  result = service.list_artifacts(
+    project_id: params[:project_id],
+    status: params[:status],
+    limit: params[:limit]
+  )
+
+  render json: result.value.map { |a| ArtifactSerializer.new(a) }
+end
+```
+
+### Get Artifact with Related Data
+```ruby
+GET /api/v1/artifacts/123?include=project,relationships
+```
+
+```ruby
+# Controller
+def show
+  artifact = Artifact.find(params[:id])
+  render json: ArtifactSerializer.new(
+    artifact,
+    include: params[:include]&.split(',')
+  )
+end
+```
+
+---
+
+## Monitoring for GraphQL Need
+
+If we see patterns like:
+- Clients making 10+ requests to build a page
+- Excessive data transfer (clients fetch fields they don't use)
+- Complex filtering requirements
+- Mobile clients struggling with latency
+
+Then it's time to add GraphQL.
+
+---
+
+## Related Decisions
+
+- [ADR-001: Domain-Driven Design](./adr-001-ddd.mdx)
+
+---
+
+## References
+
+- [REST API Best Practices](https://restfulapi.net/)
+- [JSON:API Specification](https://jsonapi.org/)

@@ -1,165 +1,104 @@
 ---
-title: AverisOS Documentation
-description: AI-native operating system for software delivery
+title: "AverisOS Documentation"
+description: "AI-native operating system for software delivery"
 ---
 
 # Welcome to AverisOS
 
-**AverisOS** is an AI-native operating system for software delivery that connects your entire software lifecycle: customer research → requirements → architecture → code → tests → release → outcomes.
-
-## 🎯 What Is AverisOS?
-
-AverisOS solves a critical problem: modern software teams use 10-30+ disconnected tools, which creates:
-
-- **Lost context** — Why was this feature built? What problem does it solve?
-- **Poor traceability** — Impact analysis is manual and error-prone
-- **AI without context** — LLMs can't help when they don't understand your system
-
-Our solution: A unified platform where every artifact (requirement, code, test, design) is connected through a knowledge graph.
-
-## 🚀 Quick Navigation
+AverisOS is an AI-native operating system for managing the entire software delivery lifecycle. From requirements to code to testing—every artifact is connected, every relationship is traced, and every change has impact visibility.
 
 <CardGroup cols={2}>
+  <Card
+    title="Getting Started"
+    icon="rocket"
+    href="/getting-started/overview"
+  >
+    Understand the problem we solve and why AverisOS matters
+  </Card>
+  <Card
+    title="Quick Start"
+    icon="bolt"
+    href="/getting-started/quick-start"
+  >
+    Get oriented in 5 minutes with a hands-on walkthrough
+  </Card>
   <Card
     title="Product Roadmap"
     icon="map"
     href="/planning/roadmap"
   >
-    18-month roadmap with phases, deliverables, and success metrics
+    See our 18-month product vision and delivery timeline
   </Card>
   <Card
     title="Architecture"
-    icon="cube"
+    icon="building"
     href="/architecture/overview"
   >
-    Rails + DDD technical design and patterns
+    Learn how we build AverisOS using Domain-Driven Design
   </Card>
   <Card
-    title="Key Decisions"
-    icon="lightbulb"
-    href="/decisions/overview"
+    title="Engineering Guide"
+    icon="wrench"
+    href="/development/setup"
   >
-    Architecture Decision Records explaining our design choices
+    Set up your local environment and start contributing
   </Card>
   <Card
-    title="Domain Guides"
-    icon="layers"
-    href="/domains/overview"
+    title="Decision Records"
+    icon="list"
+    href="/decisions/adr-001-ddd"
   >
-    Detailed design for each domain (Traceability, Auth, Git, etc.)
+    Review the architectural decisions behind AverisOS
   </Card>
 </CardGroup>
 
-## 📊 At a Glance
+## Who Is This For?
 
-| Aspect | Details |
-|--------|---------|
-| **Phase** | Phase 1 (MVP) - Months 1-3 |
-| **Team Size** | 2-4 people |
-| **Tech Stack** | Rails 7+, dry-rb, PostgreSQL |
-| **Pattern** | Domain-Driven Design |
-| **MVP Goal** | 5+ design partners, core traceability working |
+- **Product Leaders**: Understand the vision, roadmap, and go-to-market strategy in [Planning & Strategy](/planning/roadmap)
+- **Engineers**: Learn the architecture, patterns, and how to implement features in [Architecture](/architecture/overview)
+- **Developers**: Set up locally, understand testing, and start contributing in [Development](/development/setup)
+- **Decision Makers**: Review the architectural decisions that shape our approach in [Decisions](/decisions/adr-001-ddd)
 
-## 🎓 For Different Audiences
+## What Problems Do We Solve?
 
-### 👨‍💼 Stakeholders & Investors
-Start with:
-1. [Roadmap](/planning/roadmap) — What we're building and when
-2. [Business Model](/planning/business-model) — Pricing and go-to-market
-3. [Architecture Overview](/architecture/overview) — Why our approach works
+### 🔗 The Traceability Problem
+Requirements get lost in code. Features aren't tied to tests. Changes break things nobody expected. AverisOS creates an **unbreakable chain of custody** from requirements → code → tests → releases.
 
-### 👨‍💻 Engineers
-Start with:
-1. [Architecture Overview](/architecture/overview) — How we structure the codebase
-2. [Design Principles](/architecture/design-principles) — Core architectural concepts
-3. [Domain Guides](/domains/overview) — Specific domain designs
-4. [Setup Guide](/development/setup) — Get coding
+### 🤖 The Manual Work Problem
+Linking artifacts, finding impacts, detecting gaps—these are manual, error-prone tasks. AverisOS **automates the busywork** while keeping humans in control of the decisions.
 
-### 🤖 AI Developers
-Start with:
-1. [Claude Guide](/development/claude-guide) — How to work with Claude
-2. [Architecture Patterns](/architecture/patterns) — Code patterns to follow
-3. [Key Decisions](/decisions/overview) — Why we made these choices
+### 📊 The Visibility Problem
+"What breaks if this requirement changes?" Nobody knows. AverisOS shows you the **complete impact map** instantly.
 
-## 🏗️ Document Organization
+## Core Values
 
-The documentation is organized into five main areas:
+**Clarity First**
+- Clear business logic, clear tests, clear architecture
+- No magic, no implicit dependencies
+- Code that explains itself
 
-### 1. **Planning**
-- Product roadmap (18 months)
-- Business model and pricing
-- Go-to-market strategy
+**Fail Fast, Fail Clear**
+- Validation happens early
+- Errors are explicit and actionable
+- No silent failures
 
-### 2. **Architecture**
-- Design principles
-- Core patterns (Result monad, 4-phase operations)
-- Monorepo structure
-- Technology choices
+**Human-Centered Design**
+- Automation handles busywork
+- Humans make decisions
+- Keep the human in the loop
 
-### 3. **Decisions**
-- 10 Architecture Decision Records (ADRs)
-- Context and rationale for each decision
-- Template for new ADRs
+**Built for Builders**
+- Open source where it matters (CLI, SDKs)
+- Self-hosted options available
+- Customizable to your workflow
 
-### 4. **Domains**
-- Traceability (core domain)
-- Authentication
-- Git Integration
-- Testing
+## Quick Links
 
-### 5. **Development**
-- Local setup instructions
-- Contributing guidelines
-- Testing strategy
-- Claude AI collaboration guide
-
-## 🔍 Finding What You Need
-
-**"What are we building?"** → See [Roadmap](/planning/roadmap)
-
-**"How do we build it?"** → See [Architecture](/architecture/overview)
-
-**"Why did we choose that?"** → See [Decisions](/decisions/overview)
-
-**"What's a specific domain?"** → See [Domains](/domains/overview)
-
-**"How do I code?"** → See [Claude Guide](/development/claude-guide)
-
-**"How do I contribute?"** → See [Contributing](/development/contributing)
-
-**"How do I set up locally?"** → See [Setup](/development/setup)
-
-## ✨ Key Features
-
-<CardGroup cols={3}>
-  <Card title="DDD Architecture" icon="sitemap">
-    Domain-driven design with clear separation of concerns
-  </Card>
-  <Card title="Result Monad" icon="shield">
-    Explicit error handling without exceptions
-  </Card>
-  <Card title="4-Phase Operations" icon="bezier-curve">
-    Request → Verify → Validate → Command pattern
-  </Card>
-</CardGroup>
-
-## 📈 Current Status
-
-- ✅ Product vision and roadmap defined
-- ✅ Technical architecture designed
-- ✅ Key decisions documented
-- ✅ Domain designs outlined
-- ⏳ Implementation starting (Phase 1)
-
-## 🚢 Next Steps
-
-1. **Read the essentials** — Start with the cards above
-2. **Understand the architecture** — Dive into [Design Principles](/architecture/design-principles)
-3. **Review key decisions** — Check [ADRs](/decisions/overview)
-4. **Start building** — Follow [Setup Guide](/development/setup)
+- [View the full roadmap](/planning/roadmap)
+- [Understand our technical architecture](/architecture/overview)
+- [See what decisions shaped us](/decisions/adr-001-ddd)
+- [Start building](/development/setup)
 
 ---
 
-**Last Updated:** September 2026  
-**Repository:** [AverisOS/planning](https://github.com/AverisOS/planning)  
-**Status:** Ready for Phase 1 development
+**Ready to dive in?** Start with [Getting Started](/getting-started/overview) or jump straight to [Quick Start](/getting-started/quick-start).

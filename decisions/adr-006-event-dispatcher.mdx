@@ -1,0 +1,387 @@
+---
+title: "ADR-006: Event Dispatcher for Cross-Domain Communication"
+description: "Architecture Decision Record - Loose coupling through events"
+---
+
+# ADR-006: Event Dispatcher for Cross-Domain Communication
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+How should domains communicate?
+
+### Direct Service Calls
+```ruby
+# ❌ Tight coupling
+class CreateArtifact::Command
+  def call(request)
+    artifact = create_artifact(request)
+    EmailService.notify_watchers(artifact)      # Direct call!
+    SlackService.post_message(artifact)         # Direct call!
+    GitService.check_commits(artifact)          # Direct call!
+  end
+end
+```
+
+Problems:
+- **Tight coupling**: Traceability depends on Email, Slack, Git
+- **Hard to test**: Must mock all services
+- **Hard to extract**: Can't move domains independently
+- **Hidden dependencies**: Unclear what other domains are called
+
+### Event-Driven
+```ruby
+# ✓ Loose coupling
+class CreateArtifact::Command
+  def call(request)
+    artifact = create_artifact(request)
+    @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+  end
+end
+
+# Email domain subscribes
+event_dispatcher.subscribe(ArtifactCreated) do |event|
+  EmailService.notify_watchers(event.artifact_id)
+end
+```
+
+Benefits:
+- **Loose coupling**: Domains don't know about each other
+- **Easy to test**: Test emission and subscription separately
+- **Easy to extract**: Move subscriber to separate service
+- **Explicit dependencies**: Events are declared subscriptions
+
+---
+
+## Decision
+
+Use an **Event Dispatcher** pattern for cross-domain communication:
+
+1. **Domains emit domain events** (e.g., `ArtifactCreated`, `UserRegistered`)
+2. **Other domains subscribe** to events they care about
+3. **Event subscriptions are registered** in container initialization
+4. **Event handling is asynchronous** (initially synchronous, queue later)
+
+---
+
+## Alternatives Considered
+
+### 1. Direct Service Calls
+**Pros**: Simple, synchronous, easy to debug  
+**Cons**: Tight coupling, hard to extract, hidden dependencies
+
+**Verdict**: Creates monoliths.
+
+### 2. Event Dispatcher (This Decision)
+**Pros**: Loose coupling, easy to extract, explicit dependencies  
+**Cons**: More complex, eventual consistency, harder to debug
+
+**Verdict**: Right for sustainable architecture.
+
+### 3. Message Queue (RabbitMQ, Redis)
+**Pros**: Scalable, truly asynchronous, durable  
+**Cons**: Operational complexity, overkill for MVP
+
+**Verdict**: Start with EventDispatcher, migrate to queue later.
+
+---
+
+## Rationale
+
+### ✓ Loose Coupling
+Domains are completely independent:
+```ruby
+# Traceability domain - has no idea who subscribes
+class CreateArtifact::Command
+  def call(request)
+    artifact = create_artifact(request)
+    @event_dispatcher.dispatch(ArtifactCreated.new(...))
+  end
+end
+
+# Email domain - subscribes in config/initializers/event_subscriptions.rb
+event_dispatcher.subscribe(ArtifactCreated) do |event|
+  # Email logic
+end
+
+# Git domain - subscribes independently
+event_dispatcher.subscribe(ArtifactCreated) do |event|
+  # Git logic
+end
+```
+
+Neither Email nor Git know about each other. Clean.
+
+### ✓ Easy to Test
+Test emission and subscription independently:
+```ruby
+# Test that event is emitted
+describe CreateArtifact::Command do
+  it "emits ArtifactCreated event" do
+    expect(event_dispatcher).to receive(:dispatch).with(ArtifactCreated)
+    command.call(request)
+  end
+end
+
+# Test that subscription handles the event
+describe EmailSubscriber do
+  it "sends notification on ArtifactCreated" do
+    event = ArtifactCreated.new(artifact_id: 1)
+    expect(email_service).to receive(:notify)
+    handler.call(event)
+  end
+end
+```
+
+### ✓ Easy to Extract
+To move Email domain to separate service:
+
+1. Define `EventPublisher` that publishes to message queue
+2. Move `EmailSubscriber` to separate service
+3. That service listens to same queue
+4. No change to event emission code
+
+### ✓ Explicit Dependencies
+Events are like contracts:
+- **Traceability publishes**: `ArtifactCreated`, `ArtifactsLinked`, `ArtifactStatusChanged`
+- **Email subscribes to**: `ArtifactCreated`, `ArtifactsLinked`
+- **Git subscribes to**: `ArtifactCreated`
+
+Clear and explicit.
+
+### ✓ Audit Trail
+All domain events are logged:
+```
+2026-09-05 10:30:15 - ArtifactCreated (artifact_id: 123, created_by: 1)
+2026-09-05 10:30:16 - ArtifactsLinked (source: 123, target: 456)
+2026-09-05 10:30:17 - EmailSent (to: user@example.com, subject: "...")
+```
+
+Perfect for debugging and auditing.
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Loose coupling**: Domains are independent
+- **Scalable architecture**: Easy to move to microservices
+- **Easy to test**: Test pieces in isolation
+- **Audit trail**: All events are logged
+- **Extensible**: Add new subscribers without changing domains
+
+### ⚠️ Negative
+- **Eventual consistency**: Events are processed asynchronously (later)
+- **Harder to debug**: Event flow across domains is less obvious
+- **No immediate feedback**: Errors in subscribers aren't synchronous
+- **Requires discipline**: Team must follow event patterns
+
+### 🛡️ Mitigation
+- **Log all events**: Make event flow visible
+- **Document subscriptions**: Keep clear docs of who subscribes to what
+- **Error handling**: Ensure subscribers handle errors gracefully
+- **Testing**: Test event flow in integration tests
+
+---
+
+## Implementation
+
+### Event Base Class
+```ruby
+module Shared
+  class Event
+    attr_reader :occurred_at, :id
+
+    def initialize(**attributes)
+      @id = SecureRandom.uuid
+      @occurred_at = Time.current
+      attributes.each { |k, v| instance_variable_set("@#{k}", v) }
+    end
+
+    def to_h
+      instance_variables.each_with_object({}) do |var, h|
+        h[var.to_s.delete('@').to_sym] = instance_variable_get(var)
+      end
+    end
+  end
+end
+```
+
+### Domain Events
+```ruby
+# domains/traceability/events/artifact_created.rb
+module Traceability
+  class ArtifactCreated < Shared::Event
+    attr_reader :artifact_id, :project_id, :type, :owner_id
+
+    def initialize(artifact_id:, project_id:, type:, owner_id:)
+      super(
+        artifact_id: artifact_id,
+        project_id: project_id,
+        type: type,
+        owner_id: owner_id
+      )
+    end
+  end
+end
+```
+
+### Event Dispatcher
+```ruby
+module Shared
+  class EventDispatcher
+    def initialize
+      @subscribers = Hash.new { |h, k| h[k] = [] }
+    end
+
+    def subscribe(event_class, &block)
+      @subscribers[event_class] << block
+    end
+
+    def dispatch(event)
+      event_class = event.class
+      
+      # Log event
+      Rails.logger.info("Event: #{event_class.name} - #{event.to_h}")
+
+      # Call all subscribers
+      @subscribers[event_class].each do |subscriber|
+        subscriber.call(event)
+      rescue StandardError => e
+        Rails.logger.error("Subscriber error for #{event_class}: #{e.message}")
+        # In production, would push to error queue/Sentry
+      end
+    end
+  end
+end
+```
+
+### Registering Subscriptions
+```ruby
+# config/initializers/event_subscriptions.rb
+event_dispatcher = AverisOS::Container['services.event_dispatcher']
+
+# Email domain subscribes
+event_dispatcher.subscribe(Traceability::ArtifactCreated) do |event|
+  artifact = Artifact.find(event.artifact_id)
+  EmailService.notify_watchers(artifact)
+end
+
+# Git domain subscribes
+event_dispatcher.subscribe(Traceability::ArtifactCreated) do |event|
+  GitService.check_related_commits(event.artifact_id)
+end
+
+# Testing domain subscribes
+event_dispatcher.subscribe(Traceability::ArtifactsLinked) do |event|
+  TestingService.check_test_coverage(event.source_id)
+end
+```
+
+### Using in Domain Service
+```ruby
+class CreateArtifact::Command
+  def initialize(artifact_repository:, event_dispatcher:)
+    @artifact_repository = artifact_repository
+    @event_dispatcher = event_dispatcher
+  end
+
+  def call(request)
+    artifact = @artifact_repository.create(
+      project_id: request.project_id,
+      type: request.type,
+      title: request.title,
+      description: request.description
+    )
+
+    # Emit event
+    @event_dispatcher.dispatch(
+      Traceability::ArtifactCreated.new(
+        artifact_id: artifact.id,
+        project_id: artifact.project_id,
+        type: artifact.type,
+        owner_id: artifact.owner_id
+      )
+    )
+
+    Shared::Result.success(artifact)
+  end
+end
+```
+
+---
+
+## Testing Events
+
+### Unit Test (Command Emits Event)
+```ruby
+describe CreateArtifact::Command do
+  it "emits ArtifactCreated event" do
+    dispatcher = double("EventDispatcher")
+    expect(dispatcher).to receive(:dispatch) do |event|
+      expect(event).to be_a(Traceability::ArtifactCreated)
+      expect(event.artifact_id).to eq(123)
+    end
+
+    command = CreateArtifact::Command.new(
+      artifact_repository: @repository,
+      event_dispatcher: dispatcher
+    )
+    command.call(request)
+  end
+end
+```
+
+### Integration Test (Event is Handled)
+```ruby
+describe "Email notification on artifact created" do
+  it "sends notification when artifact is created" do
+    service = Traceability::TraceabilityService.new(container: AverisOS::Container)
+    
+    expect {
+      service.create_artifact(project_id: 1, type: 'requirement', title: 'Test', owner_id: 1)
+    }.to change { Email.count }.by(1)
+
+    email = Email.last
+    expect(email.recipient).to eq(project.owner.email)
+    expect(email.subject).to include("artifact created")
+  end
+end
+```
+
+---
+
+## Evolution to Message Queues
+
+When we scale (Phase 3+), convert to RabbitMQ or Redis:
+
+```ruby
+# config/initializers/event_subscriptions.rb
+if Rails.env.production?
+  event_publisher = RabbitMqEventPublisher.new
+else
+  event_publisher = SynchronousEventDispatcher.new
+end
+
+# Same code works for both!
+event_publisher.subscribe(ArtifactCreated) { |event| ... }
+```
+
+---
+
+## Related Decisions
+
+- [ADR-001: Domain-Driven Design](./adr-001-ddd.mdx)
+- [ADR-003: Monorepo for Domains](./adr-003-monorepo.mdx)
+
+---
+
+## References
+
+- [Design Principles - Events for Cross-Domain Communication](../architecture/design-principles.mdx#7-events-for-cross-domain-communication)
+- [Monorepo Structure - Cross-Domain Communication](../architecture/monorepo-structure.mdx#cross-domain-communication)

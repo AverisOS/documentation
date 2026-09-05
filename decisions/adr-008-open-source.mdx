@@ -1,0 +1,315 @@
+---
+title: "ADR-008: Open-Source Core Components"
+description: "Architecture Decision Record - Open source strategy"
+---
+
+# ADR-008: Open-Source Core Components (CLI, SDKs)
+
+**Date**: September 2026  
+**Status**: ✅ Accepted  
+**Author**: Aaron
+
+---
+
+## Context
+
+Should we open-source parts of AverisOS or keep everything proprietary?
+
+### Options
+
+**1. Proprietary Everything**
+- Keep all code private
+- No community input
+- Full control
+
+**2. Open-Source Everything**
+- Community can contribute
+- Transparency
+- Risk of competitors forking
+
+**3. Hybrid (This Decision)**
+- Open-source CLI and SDKs
+- Keep backend proprietary
+- Community can build integrations
+- Customers own their CLI
+
+---
+
+## Decision
+
+**Open-source in Phase 2+**:
+
+- ✓ **CLI tool**: Open-source (helps adoption, community contributions)
+- ✓ **SDKs**: Open-source (Ruby, Python, JavaScript)
+- ❌ **Server/backend**: Keep proprietary (contains business logic)
+
+### Why This Mix?
+- **CLI**: Users can audit, extend, contribute
+- **SDKs**: Integrate easily in their stacks
+- **Server**: Where the value is (traceability engine, AI)
+
+---
+
+## Alternatives Considered
+
+### 1. All Proprietary
+**Pros**: Control, can charge for everything  
+**Cons**: No community, slower adoption, limited integrations
+
+**Verdict**: Limits growth.
+
+### 2. All Open-Source
+**Pros**: Maximum transparency, community contributions  
+**Cons**: Competitors can fork, no direct revenue from core
+
+**Verdict**: Too generous.
+
+### 3. Hybrid (This Decision)
+**Pros**: Community benefits, integrations, adoption; we keep core  
+**Cons**: Slight maintenance overhead for open-source projects
+
+**Verdict**: Best balance.
+
+---
+
+## Rationale
+
+### ✓ Adoption
+Open-source CLI increases adoption:
+- Early adopters can self-serve
+- No vendor lock-in fear
+- Community discovers the tool
+- Word of mouth spreads faster
+
+### ✓ Network Effects
+More people using CLI → more people discover AverisOS → more SaaS customers:
+```
+Open-source CLI
+    ↓
+1000 developers using CLI
+    ↓
+100 of them evaluate SaaS
+    ↓
+10 become paying customers
+    ↓
+Company revenue
+```
+
+### ✓ Talent
+Open-source attracts engineers:
+- Engineers want to work on open-source
+- Resume building (portfolio piece)
+- Community contributions signal quality
+
+### ✓ Lock-In Prevention
+Shows we're not locking customers in:
+- Customers can use open-source CLI with any backend
+- If they leave our SaaS, CLI still works
+- Builds trust
+
+### ✓ Community Integrations
+Developers build on our open APIs:
+- GitHub Actions (run AverisOS in CI)
+- Slack bot (get traceability in Slack)
+- VS Code extension (view artifacts in editor)
+- IDE integrations (JetBrains plugins)
+
+We don't build these; community does.
+
+---
+
+## Consequences
+
+### ✅ Positive
+- **Faster adoption**: Open-source removes barrier
+- **Community contributions**: CLI improvements, bug fixes
+- **Network effects**: CLI users become SaaS leads
+- **Trust**: Transparent tooling builds confidence
+- **Integrations**: Community extends via open APIs
+
+### ⚠️ Negative
+- **Maintenance**: Need to manage open-source projects
+- **Can't charge for CLI**: Revenue from SaaS only
+- **Support burden**: More people asking for help
+- **Security reviews**: Public code gets scrutinized
+- **Competitors**: Can review source code
+
+### 🛡️ Mitigation
+- **Sponsor community developers** (Fund key contributors)
+- **Clear governance**: Document decision-making
+- **Security policy**: Responsible disclosure
+- **Support channels**: Don't support everything (prioritize paying customers)
+
+---
+
+## What Gets Open-Sourced
+
+### Phase 2: CLI
+```
+averis-os/cli
+├── bin/averis
+├── lib/
+│   ├── commands/
+│   │   ├── artifact/
+│   │   ├── link/
+│   │   ├── impact-analysis/
+│   │   └── ...
+│   └── client.rb
+├── spec/
+└── README.md
+
+$ gem install averis-os
+
+$ averis artifact create \
+    --project-id 1 \
+    --type requirement \
+    --title "User can login"
+```
+
+### Phase 2: SDKs
+```
+JavaScript:
+npm install @averis-os/sdk
+
+Ruby:
+gem install averis-os
+
+Python:
+pip install averis-os
+```
+
+### Kept Proprietary
+- Backend Rails app
+- Traceability engine (graph database)
+- AI models
+- Customer data
+
+---
+
+## Revenue Model with Open-Source
+
+**Free tier** (open-source CLI):
+- Self-hosted traceability
+- Local artifact tracking
+- No cloud
+- No collaboration
+
+**Paid tier** (AverisOS SaaS):
+- Cloud-hosted traceability
+- Team collaboration
+- AI-enhanced linking (Phase 2+)
+- Integrations and webhooks
+- Analytics and reporting
+- Professional support
+
+Revenue sources:
+1. **SaaS subscriptions** (primary)
+2. **Professional services** (implementation, training)
+3. **Support contracts** (enterprise)
+4. **Data services** (optional: anonymized insights)
+
+---
+
+## Open-Source Governance
+
+### GitHub Organization
+```
+github.com/averis-os/
+├── cli          (Open-source)
+├── ruby-sdk     (Open-source)
+├── js-sdk       (Open-source)
+├── python-sdk   (Open-source)
+└── docs         (Open-source)
+```
+
+### Maintenance
+- **We lead**: Set direction, review PRs
+- **Community helps**: Bug fixes, features, docs
+- **Sponsorships**: Pay active contributors
+- **Release cycle**: Regular updates (monthly)
+
+### Contributing
+```
+# README.md
+We welcome contributions!
+
+## Getting Started
+1. Fork and clone
+2. `bundle install && bundle exec rspec`
+3. Make changes
+4. Submit PR
+
+## Reporting Bugs
+- Use GitHub Issues
+- Include reproducible example
+- No security vulnerabilities (use security@averis-os.com)
+```
+
+---
+
+## Example: GitHub Action Integration
+
+Community builds (not us):
+
+```yaml
+# .github/workflows/traceability.yml
+- name: Link commits to requirements
+  uses: averis-os/github-action@v1
+  with:
+    project-id: ${{ secrets.AVERIS_PROJECT_ID }}
+    api-url: https://api.averis-os.com
+```
+
+This brings AverisOS into user CI/CD pipelines.
+
+---
+
+## Timeline
+
+### Phase 1
+- Proprietary everything (focus on MVP)
+
+### Phase 2
+- Open-source CLI (first time shown publicly)
+- Publish on GitHub, npm, rubygems.org, pypi
+- Community begins adopting
+
+### Phase 3
+- Open-source SDKs
+- Bigger community presence
+
+### Phase 4+
+- Consider open-sourcing more (server plugins, integrations)
+- Evaluate based on community needs
+
+---
+
+## Success Metrics
+
+**CLI/SDK adoption**:
+- GitHub stars >500
+- npm downloads >1k/month
+- Community PRs per month >5
+
+**SaaS growth**:
+- CLI users → SaaS conversions >5%
+- Community integrations >10
+
+**Community health**:
+- Response time <24hrs
+- PR merge time <1 week
+- Active contributors >5
+
+---
+
+## Related Decisions
+
+- [ROADMAP.md - Phase 2: Market Fit](../../../README.md)
+- [BUSINESS_MODEL.md - Revenue Streams](../../../README.md)
+
+---
+
+## References
+
+- [Open Source License Guide](https://opensource.guide/)
+- [Setting up OSS Project](https://help.github.com/en/github/creating-cloning-and-archiving-repositories)
