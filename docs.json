@@ -1,5 +1,6 @@
 {
   "name": "AverisOS",
+  "theme": "mint",
   "logo": {
     "dark": "/logo/dark.svg",
     "light": "/logo/light.svg"
@@ -8,13 +9,7 @@
   "colors": {
     "primary": "#0D9488",
     "light": "#14B8A6",
-    "dark": "#0F766E",
-    "ultraLight": "#CCFBF1",
-    "ultraDark": "#134E4A",
-    "background": {
-      "light": "#FFFFFF",
-      "dark": "#0F172A"
-    }
+    "dark": "#0F766E"
   },
   "topbarCtaButton": {
     "name": "Get Started",
@@ -32,63 +27,35 @@
       "url": "https://discord.gg/averis-os"
     }
   ],
-  "navigation": [
-    {
-      "group": "Getting Started",
-      "pages": [
-        "index",
-        "getting-started/overview",
-        "getting-started/quick-start"
-      ]
-    },
-    {
-      "group": "Planning & Strategy",
-      "pages": [
-        "planning/roadmap",
-        "planning/business-model",
-        "planning/go-to-market"
-      ]
-    },
-    {
-      "group": "Architecture",
-      "pages": [
-        "architecture/overview",
-        "architecture/design-principles",
-        "architecture/patterns",
-        "architecture/monorepo-structure"
-      ]
-    },
-    {
-      "group": "Decisions",
-      "pages": [
-        "decisions/adr-001-ddd",
-        "decisions/adr-002-result-monad",
-        "decisions/adr-003-monorepo",
-        "decisions/adr-004-rest-api",
-        "decisions/adr-005-dry-rb",
-        "decisions/adr-006-event-dispatcher",
-        "decisions/adr-007-phase-1-focus",
-        "decisions/adr-008-open-source",
-        "decisions/adr-009-design-partners",
-        "decisions/adr-010-self-hosted"
-      ]
-    },
-    {
-      "group": "Domains",
-      "pages": [
-        "domains/overview"
-      ]
-    },
-    {
-      "group": "Development",
-      "pages": [
-        "development/setup",
-        "development/contributing",
-        "development/testing-strategy",
-        "development/claude-guide"
-      ]
-    }
-  ],
+  "navigation": {
+    "pages": [
+      "index",
+      "getting-started/overview",
+      "getting-started/quick-start",
+      "planning/roadmap",
+      "planning/business-model",
+      "planning/go-to-market",
+      "architecture/overview",
+      "architecture/design-principles",
+      "architecture/patterns",
+      "architecture/monorepo-structure",
+      "decisions/adr-001-ddd",
+      "decisions/adr-002-result-monad",
+      "decisions/adr-003-monorepo",
+      "decisions/adr-004-rest-api",
+      "decisions/adr-005-dry-rb",
+      "decisions/adr-006-event-dispatcher",
+      "decisions/adr-007-phase-1-focus",
+      "decisions/adr-008-open-source",
+      "decisions/adr-009-design-partners",
+      "decisions/adr-010-self-hosted",
+      "domains/overview",
+      "development/setup",
+      "development/contributing",
+      "development/testing-strategy",
+      "development/claude-guide"
+    ]
+  },
   "footerSocials": {
     "twitter": "https://twitter.com/averis_os",
     "github": "https://github.com/AverisOS",
