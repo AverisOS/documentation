@@ -1,0 +1,165 @@
+---
+title: AverisOS Documentation
+description: AI-native operating system for software delivery
+---
+
+# Welcome to AverisOS
+
+**AverisOS** is an AI-native operating system for software delivery that connects your entire software lifecycle: customer research → requirements → architecture → code → tests → release → outcomes.
+
+## 🎯 What Is AverisOS?
+
+AverisOS solves a critical problem: modern software teams use 10-30+ disconnected tools, which creates:
+
+- **Lost context** — Why was this feature built? What problem does it solve?
+- **Poor traceability** — Impact analysis is manual and error-prone
+- **AI without context** — LLMs can't help when they don't understand your system
+
+Our solution: A unified platform where every artifact (requirement, code, test, design) is connected through a knowledge graph.
+
+## 🚀 Quick Navigation
+
+<CardGroup cols={2}>
+  <Card
+    title="Product Roadmap"
+    icon="map"
+    href="/planning/roadmap"
+  >
+    18-month roadmap with phases, deliverables, and success metrics
+  </Card>
+  <Card
+    title="Architecture"
+    icon="cube"
+    href="/architecture/overview"
+  >
+    Rails + DDD technical design and patterns
+  </Card>
+  <Card
+    title="Key Decisions"
+    icon="lightbulb"
+    href="/decisions/overview"
+  >
+    Architecture Decision Records explaining our design choices
+  </Card>
+  <Card
+    title="Domain Guides"
+    icon="layers"
+    href="/domains/overview"
+  >
+    Detailed design for each domain (Traceability, Auth, Git, etc.)
+  </Card>
+</CardGroup>
+
+## 📊 At a Glance
+
+| Aspect | Details |
+|--------|---------|
+| **Phase** | Phase 1 (MVP) - Months 1-3 |
+| **Team Size** | 2-4 people |
+| **Tech Stack** | Rails 7+, dry-rb, PostgreSQL |
+| **Pattern** | Domain-Driven Design |
+| **MVP Goal** | 5+ design partners, core traceability working |
+
+## 🎓 For Different Audiences
+
+### 👨‍💼 Stakeholders & Investors
+Start with:
+1. [Roadmap](/planning/roadmap) — What we're building and when
+2. [Business Model](/planning/business-model) — Pricing and go-to-market
+3. [Architecture Overview](/architecture/overview) — Why our approach works
+
+### 👨‍💻 Engineers
+Start with:
+1. [Architecture Overview](/architecture/overview) — How we structure the codebase
+2. [Design Principles](/architecture/design-principles) — Core architectural concepts
+3. [Domain Guides](/domains/overview) — Specific domain designs
+4. [Setup Guide](/development/setup) — Get coding
+
+### 🤖 AI Developers
+Start with:
+1. [Claude Guide](/development/claude-guide) — How to work with Claude
+2. [Architecture Patterns](/architecture/patterns) — Code patterns to follow
+3. [Key Decisions](/decisions/overview) — Why we made these choices
+
+## 🏗️ Document Organization
+
+The documentation is organized into five main areas:
+
+### 1. **Planning**
+- Product roadmap (18 months)
+- Business model and pricing
+- Go-to-market strategy
+
+### 2. **Architecture**
+- Design principles
+- Core patterns (Result monad, 4-phase operations)
+- Monorepo structure
+- Technology choices
+
+### 3. **Decisions**
+- 10 Architecture Decision Records (ADRs)
+- Context and rationale for each decision
+- Template for new ADRs
+
+### 4. **Domains**
+- Traceability (core domain)
+- Authentication
+- Git Integration
+- Testing
+
+### 5. **Development**
+- Local setup instructions
+- Contributing guidelines
+- Testing strategy
+- Claude AI collaboration guide
+
+## 🔍 Finding What You Need
+
+**"What are we building?"** → See [Roadmap](/planning/roadmap)
+
+**"How do we build it?"** → See [Architecture](/architecture/overview)
+
+**"Why did we choose that?"** → See [Decisions](/decisions/overview)
+
+**"What's a specific domain?"** → See [Domains](/domains/overview)
+
+**"How do I code?"** → See [Claude Guide](/development/claude-guide)
+
+**"How do I contribute?"** → See [Contributing](/development/contributing)
+
+**"How do I set up locally?"** → See [Setup](/development/setup)
+
+## ✨ Key Features
+
+<CardGroup cols={3}>
+  <Card title="DDD Architecture" icon="sitemap">
+    Domain-driven design with clear separation of concerns
+  </Card>
+  <Card title="Result Monad" icon="shield">
+    Explicit error handling without exceptions
+  </Card>
+  <Card title="4-Phase Operations" icon="bezier-curve">
+    Request → Verify → Validate → Command pattern
+  </Card>
+</CardGroup>
+
+## 📈 Current Status
+
+- ✅ Product vision and roadmap defined
+- ✅ Technical architecture designed
+- ✅ Key decisions documented
+- ✅ Domain designs outlined
+- ⏳ Implementation starting (Phase 1)
+
+## 🚢 Next Steps
+
+1. **Read the essentials** — Start with the cards above
+2. **Understand the architecture** — Dive into [Design Principles](/architecture/design-principles)
+3. **Review key decisions** — Check [ADRs](/decisions/overview)
+4. **Start building** — Follow [Setup Guide](/development/setup)
+
+---
+
+**Last Updated:** September 2026  
+**Repository:** [AverisOS/planning](https://github.com/AverisOS/planning)  
+**Status:** Ready for Phase 1 development

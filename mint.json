@@ -1,0 +1,103 @@
+{
+  "name": "AverisOS",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0D9488",
+    "light": "#0FCAD3",
+    "dark": "#0D9488",
+    "anchors": {
+      "from": "#0D9488",
+      "to": "#0FCAD3"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/AverisOS"
+    }
+  ],
+  "tabs": [
+    {
+      "name": "Planning",
+      "url": "planning"
+    },
+    {
+      "name": "Architecture",
+      "url": "architecture"
+    },
+    {
+      "name": "Domains",
+      "url": "domains"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": [
+        "index",
+        "overview",
+        "quick-start"
+      ]
+    },
+    {
+      "group": "Planning",
+      "pages": [
+        "planning/roadmap",
+        "planning/business-model",
+        "planning/go-to-market"
+      ]
+    },
+    {
+      "group": "Architecture",
+      "pages": [
+        "architecture/overview",
+        "architecture/design-principles",
+        "architecture/patterns",
+        "architecture/monorepo-structure"
+      ]
+    },
+    {
+      "group": "Decisions",
+      "pages": [
+        "decisions/overview",
+        "decisions/adr-001-ddd",
+        "decisions/adr-002-result-monad",
+        "decisions/adr-003-monorepo",
+        "decisions/adr-004-rest-api",
+        "decisions/adr-005-dry-rb",
+        "decisions/adr-006-events",
+        "decisions/adr-007-phase1-focus",
+        "decisions/adr-008-open-source",
+        "decisions/adr-009-design-partners",
+        "decisions/adr-010-self-hosted"
+      ]
+    },
+    {
+      "group": "Domains",
+      "pages": [
+        "domains/overview",
+        "domains/traceability",
+        "domains/authentication",
+        "domains/git-integration",
+        "domains/testing"
+      ]
+    },
+    {
+      "group": "Development",
+      "pages": [
+        "development/setup",
+        "development/contributing",
+        "development/testing-strategy",
+        "development/claude-guide"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/AverisOS",
+    "twitter": "https://twitter.com/AverisOS"
+  }
+}

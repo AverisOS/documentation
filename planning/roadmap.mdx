@@ -1,0 +1,245 @@
+---
+title: Product Roadmap
+description: 18-month roadmap with phases, deliverables, and metrics
+---
+
+# Product Roadmap
+
+**AverisOS 18-Month Roadmap**
+
+Organized into three phases: MVP validation, market fit, and enterprise scale.
+
+## Phase 1: Core MVP (Months 1-3)
+
+**Goal:** Build the foundational traceability graph and prove engineers value connected artifacts.
+
+**Team:** 2-4 people  
+**Budget:** $30-50k  
+**Success Metric:** 5+ design partners, core features working, strong NPS
+
+### Deliverables
+
+#### 1.1 Core Data Model & API
+- Flexible artifact types (Requirement, Feature, Task, Code, Test, Release)
+- Relationship engine (links artifacts, auto-detects related items)
+- REST API for CRUD on artifacts
+- PostgreSQL as backing store
+
+**Acceptance Criteria:**
+- Create/read/update/delete artifacts
+- Link artifacts with relationships
+- Query relationships (e.g., "what tests validate this requirement?")
+- Support up to 100k artifacts without performance degradation
+
+#### 1.2 Web Dashboard (Basic)
+- Artifact browser: List, search, filter artifacts
+- Relationship viewer: Visual graph showing connections
+- Create/edit UI: Forms for new artifacts
+- Project workspace: Multi-project support
+
+#### 1.3 Git Integration
+- Detect code-to-artifact links (parse commit messages for "REQ-123")
+- Pull request metadata
+- Commit history tracking
+- Webhook handlers (GitHub, GitLab, Bitbucket)
+
+#### 1.4 Test Integration
+- Manual test input (simple form)
+- Automated test sync (pull test results from CI/CD)
+- Test-to-requirement linking
+- Coverage tracking
+
+#### 1.5 CLI Tool
+```bash
+alm artifact create REQ "User can login with SSO"
+alm artifact list --type requirement
+alm link REQ-123 CODE-456
+alm trace REQ-123        # show all related artifacts
+alm impact CODE-456      # what requirements does this affect?
+```
+
+#### 1.6 IDE Extension (VS Code)
+- Show context panel: Display related requirements/tests
+- Quick link: Create relationships from IDE
+- Navigate: Jump from code to requirement
+
+#### 1.7 Minimal AI (No LLM)
+- Auto-linking heuristics: Detect artifact IDs in commits
+- Suggestion engine: "You changed PaymentService. These requirements might be affected"
+- No heavy LLM calls (avoid costs)
+
+#### 1.8 Design Partner Program
+- 5-10 beta users
+- Setup guide for quick onboarding
+- Weekly feedback sessions
+- Case study collection
+
+### Success Metrics
+- 5+ design partners using daily
+- 100+ artifacts created across partners
+- NPS > 50
+- Core API, CLI, IDE extension all working
+
+---
+
+## Phase 2: Market Fit (Months 4-8)
+
+**Goal:** Convert design partners to paying customers and expand capabilities.
+
+**Team:** 5-7 people  
+**Budget:** $80-120k  
+**Success Metric:** 10-20 paying customers, $20-40k MRR, 80%+ retention
+
+### Key Deliverables
+
+#### 2.1 AI Agents (Open-Source)
+- Ollama integration for Llama 2, Mistral
+- No vendor lock-in: Customers choose models
+- Custom skills: Organizations create domain-specific AI tasks
+- Cost tracking: Show estimated cost per agent run
+
+#### 2.2 Advanced Traceability
+- Impact analysis: "What does this code change affect?"
+- Dependency visualization: Full dependency chains
+- Gap detection: "This requirement has no tests"
+- Change risk: Calculate risk scores per change
+
+#### 2.3 Product Intelligence
+- Roadmap management: Link customer research → roadmap → requirements
+- Customer research artifact type
+- Prioritization: AI-assisted impact/effort scoring
+- Outcome tracking: Link releases to business outcomes
+
+#### 2.4 Enterprise Deployment
+- Docker Compose setup: Self-hosted option
+- PostgreSQL backups: Automated daily
+- RBAC: Role-based access control
+- Audit logs: Track changes
+
+#### 2.5 Expanded Integrations
+- Jira integration: Bi-directional sync
+- Slack notifications
+- GitHub/GitLab advanced sync
+- DataDog/Prometheus monitoring data
+
+#### 2.6 Sales & Pricing
+- Starter tier: $500/month (10 users, 1 project)
+- Professional tier: $2,000/month (50 users, 5 projects)
+- Enterprise tier: Custom pricing
+- Stripe integration, trial signup
+
+#### 2.7 Customer Success
+- Onboarding: 2-hour setup with each customer
+- Weekly check-ins
+- Video training
+- Community Slack
+
+### Success Metrics
+- 10-20 paying customers
+- $20-40k MRR
+- 80%+ retention
+- NPS > 50
+- 3+ case studies
+
+---
+
+## Phase 3: Enterprise Scale (Months 9-18)
+
+**Goal:** Enterprise features, multi-region infrastructure, established brand.
+
+**Team:** 10+ people  
+**Budget:** $150-250k  
+**Success Metric:** 50+ customers, $200k+ MRR, product-market fit signals
+
+### Key Deliverables
+
+#### 3.1 AI Marketplace
+- 10+ pre-built skills available
+- Skill editor UI
+- Community sharing
+- Versioning and governance
+
+#### 3.2 Advanced Analytics
+- DORA metrics: Cycle time, deployment frequency, etc.
+- Quality metrics: Defect escape rate, coverage trends
+- Team metrics: Velocity, code review cycles
+- Customizable dashboards
+
+#### 3.3 MCP Server Support
+- Expose APIs via Model Context Protocol
+- External agents can query AverisOS
+- Enable custom workflows with GPT plugins
+
+#### 3.4 Compliance & Governance
+- Approval workflows
+- Compliance checklists (SOC 2, HIPAA, PCI-DSS)
+- Change tracking for audit
+- Data residency options
+
+#### 3.5 Portfolio Intelligence
+- Cross-project impact analysis
+- Dependency mapping across projects
+- Release coordination
+- Portfolio-level risk assessment
+
+#### 3.6 Observability Integration
+- Deploy → metrics linking
+- Error tracking integration
+- Performance impact analysis
+- Release validation
+
+#### 3.7 Advanced IDE Integration
+- JetBrains support (IntelliJ, PyCharm, etc.)
+- Neovim plugin
+- Inline insights and warnings
+- Copilot-style interaction
+
+#### 3.8 Global Infrastructure
+- Multi-region deployment
+- High availability setup
+- CDN for static assets
+- 99.5% uptime SLA
+
+### Success Metrics
+- 50+ customers
+- $200k+ MRR
+- NPS > 60
+- Product-market fit signals (low churn, high expansion)
+
+---
+
+## Timeline Overview
+
+```
+Month 1-3:    Phase 1 MVP
+              └─ Design partners, core features
+
+Month 4-8:    Phase 2 Market Fit
+              └─ Paying customers, AI agents
+
+Month 9-18:   Phase 3 Enterprise
+              └─ Multi-region, advanced features
+```
+
+## Key Milestones
+
+| Milestone | Target | Status |
+|-----------|--------|--------|
+| MVP launches | Month 3 | Planning |
+| First paying customer | Month 5-6 | Planning |
+| 10 customers | Month 8 | Planning |
+| Product-market fit | Month 8+ | Planning |
+| Phase 2 complete | Month 8 | Planning |
+| Phase 3 complete | Month 18 | Planning |
+
+## Financial Projections
+
+| Metric | Year 1 | Year 2 | Year 3 |
+|--------|--------|--------|--------|
+| Customers | 10-20 | 50-100 | 200-300 |
+| MRR | $10-30k | $100-200k | $300-500k |
+| ARR | $120-360k | $1.2-2.4M | $3.6-6M |
+
+---
+
+**Next:** See [Business Model](/planning/business-model) for pricing and go-to-market details.
