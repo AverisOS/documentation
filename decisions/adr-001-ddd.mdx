@@ -41,10 +41,20 @@ Adopt **Domain-Driven Design (DDD)** with Rails as the infrastructure layer:
 
 - **Models**: Thin, persistence-only (just associations and validations)
 - **Controllers**: Routing and HTTP concerns only (no business logic)
-- **Domain Layer**: Command/Request/Verify/Validate pattern with dry-rb
+- **Domain Layer**: Request/Verify/Validate/Command pattern with dry-rb, applied **selectively** — see "Selective Four-Phase Operations" below
 - **Dependency Injection**: All dependencies explicitly injected (via dry-container)
 - **Error Handling**: Result monad (success/failure, no exceptions)
-- **Communication**: Events for cross-domain communication (loose coupling)
+- **Communication**: Events for cross-domain communication (loose coupling), dispatched **synchronously in-process** for Phase 1 (see [ADR-006](./adr-006-event-dispatcher.mdx))
+
+### Selective Four-Phase Operations
+
+The full four-phase pattern is **required for complex or critical operations only** — not every CRUD action. Use all four phases when an operation meets 2+ of:
+- Crosses domain boundaries or emits events other domains subscribe to
+- Has semantic validation beyond existence checks (circular dependency detection, permission/authorization logic, cross-record uniqueness)
+- Sits on a critical path (artifact creation/linking, authentication, anything security- or billing-relevant)
+- Has business rules that would otherwise leak into a controller or model
+
+Everything else collapses to **Validate → Command**, or **Command** alone for pure reads. This was revised from the original "every operation gets all four phases" decision after finding it added boilerplate without adding safety for trivial operations — see Consequences below.
 
 ---
 
@@ -118,16 +128,14 @@ Clear structure helps team members:
 - **Business agility**: Business rules are explicit and easy to change
 
 ### ⚠️ Negative
-- **More boilerplate early on**: Request/Verify/Validate/Command for each operation
 - **Steeper learning curve**: Rails developers need to learn DDD patterns
-- **More files**: Each operation has multiple files instead of one method
-- **Overhead for simple CRUD**: Four-phase pattern might feel heavy for trivial operations
+- **More files for complex operations**: Full four-phase operations have multiple files instead of one method
 
 ### 🛡️ Mitigation
 - Provide extensive [architecture guide](../architecture/overview.mdx) and examples
 - Share common patterns as generators (soon)
-- Start with simple operations and add complexity as needed
-- Emphasize that the pattern prevents bugs and reduces testing time
+- **Resolved**: the "overhead for simple CRUD" negative above is addressed by making four-phase selective (see "Selective Four-Phase Operations" above) rather than mandatory for every operation
+- Emphasize that the full pattern prevents bugs and reduces testing time specifically where the complexity criteria apply
 
 ---
 

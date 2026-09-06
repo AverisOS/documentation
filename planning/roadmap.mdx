@@ -111,12 +111,14 @@ An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Ma
 
 ### Phase 1 Technical Focus
 
-- ✓ Domain-Driven Design foundation
+- ✓ Domain-Driven Design foundation, selective four-phase operations (full Request/Verify/Validate/Command only for complex/critical operations — see [ADR-001](../decisions/adr-001-ddd.mdx))
 - ✓ REST API with clean request/response
-- ✓ PostgreSQL relational design
+- ✓ PostgreSQL relational design, plus a closure table for graph traversal (see [ADR-011](../decisions/adr-011-graph-modeling.mdx))
+- ✓ react-flow for impact/dependency visualization (see [ADR-012](../decisions/adr-012-impact-visualization.mdx))
 - ✓ Basic auth (email/password)
 - ✓ Manual linking (no AI)
-- ✓ Event-driven architecture (foundation)
+- ✓ Event-driven architecture, synchronous/in-process for Phase 1 (see [ADR-006](../decisions/adr-006-event-dispatcher.mdx))
+- ✓ Work ownership model (teams, assignment, backlogs) without sprint ceremony — see [Work Management Model](./work-management.mdx)
 
 ---
 
@@ -241,6 +243,7 @@ An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Ma
 - ✓ Advanced event processing (CI/CD, tests)
 - ✓ Open source strategy (CLI, SDKs)
 - ✓ Performance optimization
+- ✓ Delivery workflow layer: sprint planning, basic Agile workflow, Kanban boards, Waterfall stage-gates — moved from Phase 1 (see [PRD: "Why the Phase Boundary Is Drawn Here"](./prd.mdx#why-the-phase-boundary-is-drawn-here))
 
 ---
 
@@ -350,6 +353,7 @@ An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Ma
 - ✓ GraphQL API
 - ✓ Plugin/extensibility system
 - ✓ Mobile apps
+- ✓ IDE integration (VS Code, JetBrains) — moved from Phase 1; CLI (Phase 1) validates developer-experience demand first
 
 ---
 

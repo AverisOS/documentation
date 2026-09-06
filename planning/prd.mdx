@@ -730,43 +730,40 @@ Support:
 
 # 23. MVP
 
-## Phase 1: Core Intelligence Layer + Work Management
+## Phase 1: Core Intelligence Layer + Work Ownership
 
-The foundation layer that connects the entire software delivery lifecycle with explicit team accountability.
+The foundation layer that connects the entire software delivery lifecycle with explicit team accountability. Scope is deliberately narrowed to the traceability wedge — enough work-ownership context to make artifacts accountable, without building a full Agile delivery tool before the core value proposition is validated. See "Why the Phase Boundary Is Drawn Here" below.
 
 ### Intelligence Foundation
 * Flexible artifacts
 * Unlimited hierarchy
-* Traceability graph
+* Traceability graph (Postgres closure table — see [ADR-011](../decisions/adr-011-graph-modeling.mdx))
 * Manual testing
 * Automated test integration
 * MCP foundation
 * AI provider abstraction
 
-### Work Management & Permissions
+### Work Ownership & Permissions
 * Explicit team membership and roles
 * Project ownership and team assignment
-* Team and project backlogs
+* Team and project backlogs (a list of owned/assigned artifacts — not a sprint board)
 * Work assignment workflows (pull/push/flagging)
 * Triage pool for assignment conflicts
 * Separate team and individual accountability
 * Role-based + domain-level permissions
 * Confidential flag for sensitive projects
-
-### Work Execution
-* Sprint planning and management
-* Basic Agile workflow support
-* Assignment health metrics (team self vs management assigned)
+* Assignment health metrics (team self vs management assigned) — this is a discovery signal, kept in Phase 1 because it's cheap to compute from the assignment data already being captured, not because it's delivery tooling
 
 ### Developer Experience
-* IDE integration (with team and work context)
 * CLI (team queries, traceability, assignment commands)
+
+**Not in Phase 1** (see Phase 2/3 below): sprint planning, Kanban/Waterfall workflow support, IDE integration.
 
 ---
 
-## Phase 2: Product and Architecture Intelligence
+## Phase 2: Product, Architecture Intelligence & Delivery Workflow
 
-Adds intelligence for customer needs, design, and architectural decisions.
+Adds intelligence for customer needs, design, and architectural decisions, and now that traceability itself is validated, the delivery-workflow layer on top of it.
 
 * Customer research
 * Roadmaps
@@ -775,6 +772,9 @@ Adds intelligence for customer needs, design, and architectural decisions.
 * Technical diagrams
 * AI agents
 * Cost optimization
+* **Work Execution**: sprint planning and management, basic Agile workflow support (moved from Phase 1 — see "Why the Phase Boundary Is Drawn Here" below)
+* Kanban boards, WIP limits, flow metrics
+* Waterfall phases, milestones, stage gates (as needed for hybrid-methodology support)
 
 ---
 
@@ -788,6 +788,17 @@ Extends the platform for large organizations with advanced governance and compli
 * Portfolio intelligence
 * Industry-specific solutions
 * Approval workflows for high-risk work
+* **IDE integration** (VS Code, JetBrains) — moved from Phase 1; CLI covers developer experience until the core product is validated and IDE-embedded context is worth the plugin-maintenance cost
+
+---
+
+## Why the Phase Boundary Is Drawn Here
+
+Sprint planning, Kanban boards, and Waterfall stage-gates are well-solved problems — Jira and Azure DevOps already do this well, and building a competitive version of it doesn't differentiate AverisOS. Building it in Phase 1 would spend MVP time and design-partner attention on the part of the product that's least novel, at the expense of the traceability graph and impact analysis, which are the actual bet.
+
+What Phase 1 keeps from the original work-management scope is the minimum needed for traceability to mean anything: an artifact needs an owning team before "what breaks if I change this?" is a useful question to a real person. That's ownership data, not delivery-workflow tooling — see [PRD's original justification, "Why Work Management is Phase 1"](#why-work-management-is-phase-1) below, which still holds for ownership; it just doesn't require sprints or boards to be true.
+
+IDE integration is deferred past even Phase 2 because it's real ongoing maintenance surface (two plugin ecosystems) for a channel that isn't proven yet — the CLI validates the "developers want this in their tool of choice" hypothesis more cheaply.
 
 ---
 
@@ -801,7 +812,7 @@ Work management is foundational because:
 
 3. **Permissions depend on it** — Read-everything default with confidential flag requires knowing team membership and domain access.
 
-4. **IDE/CLI value is unlocked** — Context like "show me my team's work" requires the work management model to be live.
+4. **CLI value is unlocked** — Context like "show me my team's work" requires the work management model to be live. (IDE integration itself is deferred to Phase 3 — see the redrawn phase boundaries above — but the CLI needs the same ownership data now.)
 
 5. **Metrics matter from day one** — Tracking management vs team-assigned work reveals organizational friction early. This is a discovery tool, not just a delivery tool.
 

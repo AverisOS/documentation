@@ -24,13 +24,9 @@ AverisOS is built on domain-driven design (DDD) principles with three bounded co
 │         │                      │                    │        │
 │         └──────────┬───────────┴────────────────────┘        │
 │                    │                                         │
-│            Event Bus (Async Events)                          │
-│                    │                                         │
-│  ┌────────────────────────────────────────────┐             │
-│  │    Sidekiq (Background Job Processing)     │             │
-│  │    - Cross-domain event handling           │             │
-│  │    - Async notifications                   │             │
-│  └────────────────────────────────────────────┘             │
+│         Event Dispatcher (Synchronous, In-Process)            │
+│         - Cross-domain event handling                         │
+│         - Runs in the same request/transaction (Phase 1)      │
 └─────────────────────────────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
@@ -74,7 +70,7 @@ end
 Handles user registration, login, session management, and password reset. Produces events like `UserRegistered`, `SessionStarted`, `PasswordReset`.
 
 ### Traceability Domain
-Core domain managing artifacts (specs, code, tests, docs) and relationships between them. Provides impact analysis and dependency graph queries. Produces events like `ArtifactCreated`, `RelationshipEstablished`.
+Core domain managing artifacts (specs, code, tests, docs) and relationships between them. Provides impact analysis and dependency graph queries via a Postgres closure table (see [ADR-011](../decisions/adr-011-graph-modeling.mdx)). Produces events like `ArtifactCreated`, `RelationshipEstablished`.
 
 ### Git Integration Domain
 Connects to Git repositories, syncs commits, and links them to artifacts. Produces events like `RepositoryConnected`, `CommitsSync'd`.
@@ -89,13 +85,17 @@ Connects to Git repositories, syncs commits, and links them to artifacts. Produc
 - **Value Objects**: Immutable, reusable objects (UserId, ArtifactId)
 
 ### RVVC Pattern (Selective)
-Applied when operation complexity warrants (2+ criteria):
-1. **Request**: Parse/validate input
-2. **Verify**: Check preconditions (user exists, no duplicates)
-3. **Validate**: Apply business rules
-4. **Command**: Perform persistence
+The four-phase pattern (Request → Verify → Validate → Command) is **not required for every operation**. Use the full pattern only when an operation meets 2 or more of:
+- Crosses domain boundaries or emits events other domains subscribe to
+- Has semantic validation beyond existence checks (circular dependency detection, permission checks, uniqueness across related records)
+- Belongs to a critical path (artifact creation/linking, auth, anything security- or billing-relevant)
+- Has business rules that would otherwise hide inside a controller or model
 
-Example: `RegisterUser` uses all 4 layers. Simple `GetArtifact` uses only Command.
+Otherwise, collapse to a lightweight **Validate → Command** (or just **Command**) pair — trivial reads and simple CRUD don't need four files each.
+
+Example: `LinkArtifacts` (circular dependency check, cross-domain event) uses all 4 layers. `GetArtifact` (a read) uses only Command. `UpdateArtifactTitle` (simple field update, no side effects) uses Validate → Command.
+
+See [ADR-001](../decisions/adr-001-ddd.mdx) and [Design Principles §6](./design-principles.mdx#6-four-phase-operations-selective) for the full rationale, and [Patterns](./patterns.mdx#pattern-0-lightweight-operation-no-side-effects) for a worked lightweight example.
 
 ### Result Monad
 All operations return `Result<T, Error>` (success or typed failure):
@@ -109,7 +109,7 @@ result.on_failure { |error| render json: error, status: :unprocessable_entity }
 Container manages all dependencies. Services receive what they need—no hidden globals or singletons.
 
 ### Event-Driven Communication
-Domains communicate via events published to an event bus, consumed asynchronously by Sidekiq. This enables loose coupling and async processing.
+Domains communicate via events published to an in-process `EventDispatcher`, handled **synchronously in the same request** for Phase 1 — no queue, no Sidekiq. This keeps failures visible immediately (a failing subscriber shows up in the same request instead of silently disappearing into a queue) and avoids operating a job system before it's needed. See [ADR-006](../decisions/adr-006-event-dispatcher.mdx) for the revisit trigger for moving to async.
 
 ## Deployment Strategy
 
@@ -129,11 +129,12 @@ Domains communicate via events published to an event bus, consumed asynchronousl
 |-------|-----------|---------|
 | Frontend | React 18 + Vite | Fast SPA build/dev |
 | UI Framework | shadcn/ui + Tailwind | Customizable components |
+| Graph Visualization | react-flow (`@xyflow/react`) + elkjs | Impact analysis / dependency graph rendering (see [ADR-012](../decisions/adr-012-impact-visualization.mdx)) |
 | Backend | Rails 8.0.x (API mode) | JSON API and domain logic |
 | Language | Ruby 3.3.x | Productive, readable |
-| Database | PostgreSQL 15+ | Reliable RDBMS |
-| Cache | Redis 7+ | Session, cache, job queue |
-| Job Queue | Sidekiq | Async processing |
+| Database | PostgreSQL 15+ | Reliable RDBMS; also stores the artifact graph (see [ADR-011](../decisions/adr-011-graph-modeling.mdx)) |
+| Event Dispatch | In-process `EventDispatcher` | Synchronous cross-domain events (Phase 1) |
+| Cache / Job Queue | Redis + Sidekiq | **Phase 2+** — not needed while events are synchronous |
 | Testing | Playwright, RSpec, Capybara | E2E, unit, integration |
 | Deployment | GitHub Actions, Heroku/Railway | CI/CD automation |
 | Monitoring | Sentry, OpenTelemetry, Prometheus | Errors, traces, metrics |

@@ -1,0 +1,103 @@
+---
+title: "ADR-012: react-flow for Impact & Dependency Visualization"
+description: "Architecture Decision Record - Frontend graph visualization library"
+---
+
+# ADR-012: react-flow for Impact & Dependency Visualization
+
+**Date**: September 2026
+**Status**: ✅ Accepted
+**Author**: Aaron
+
+---
+
+## Context
+
+[Roadmap M3: Impact Analysis](../planning/roadmap.mdx) requires a "dependency graph visualization (force-directed)" for showing what an artifact affects, both directly and transitively. This is a **local neighborhood view** — the direct + transitive dependencies of one artifact, per [ADR-011](./adr-011-graph-modeling.mdx)'s closure table — not a full-graph explorer of every artifact in a project. Realistically this means dozens of nodes per view, not thousands.
+
+The frontend is React + Vite + shadcn ([ADR - Backend/Frontend split intent](../architecture/overview.mdx)), so the visualization choice should fit that stack.
+
+### Option 1: react-flow (`@xyflow/react`)
+React-native node/edge graph library with a built-in interaction model (pan, zoom, select) and pluggable layout engines.
+
+### Option 2: D3.js
+Low-level visualization primitive library; force-directed layouts are a common D3 pattern but everything (rendering, interaction, layout) is hand-built.
+
+### Option 3: sigma.js
+WebGL-based graph renderer built for large graphs (thousands of nodes).
+
+---
+
+## Decision
+
+Use **react-flow (`@xyflow/react`)** paired with **elkjs** (or dagre) for automatic layered/hierarchical layout of the impact-analysis view.
+
+---
+
+## Rationale
+
+### ✓ Matches the Stack
+react-flow is a React component library — it composes with the existing Vite + React + shadcn frontend instead of requiring an escape hatch to imperative DOM/canvas manipulation, which D3 and sigma.js both need.
+
+### ✓ Right-Sized for the Actual Use Case
+Impact analysis shows one artifact's local neighborhood, not the whole graph. react-flow performs well at the scale this feature actually needs (tens of nodes); sigma.js's WebGL rendering solves a scaling problem (thousands of nodes) this feature doesn't have yet. Reaching for sigma.js now would be over-engineering for a graph-explorer feature that isn't in Phase 1 scope.
+
+### ✓ Built-in Interaction, Less Hand-Building
+Pan, zoom, node selection, and edge rendering come out of the box. D3 gives more control but requires building all of this by hand — not a good tradeoff for a small team validating product-market fit.
+
+### ✓ Layout Flexibility
+elkjs/dagre integration gives layered/hierarchical layouts (good for showing "upstream vs downstream" directionality in impact analysis) as well as more force-directed-style layouts if that reads better for a given view. Both integrate cleanly with react-flow's node/edge model.
+
+---
+
+## Alternatives Considered
+
+### 1. react-flow (This Decision)
+**Pros**: React-native, good DX, sufficient performance for local-neighborhood graphs, active maintenance
+**Cons**: Not built for very large graphs (thousands+ of nodes) — would need reconsideration if a full-graph explorer feature is ever added
+
+**Verdict**: Right fit for Phase 1's impact-analysis view.
+
+### 2. D3.js
+**Pros**: Maximum control, mature ecosystem, true force-directed simulation
+**Cons**: Everything is hand-built (rendering, interaction, accessibility); more implementation and maintenance cost than the feature justifies
+
+**Verdict**: More power than needed; the cost shows up as slower delivery, not better UX, for this use case.
+
+### 3. sigma.js
+**Pros**: Handles very large graphs via WebGL
+**Cons**: Solves a scale problem (thousands of nodes) that doesn't exist yet for a local-neighborhood impact view; heavier to integrate with a React component tree
+
+**Verdict**: Reconsider only if a full-project graph explorer becomes a real feature — see Revisit Trigger.
+
+---
+
+## Revisit Trigger
+
+Reconsider sigma.js (or another WebGL-based renderer) if a feature requires rendering the **entire** project graph (not a local neighborhood) at a scale of hundreds-to-thousands of nodes — e.g. a "portfolio-wide dependency map" feature. That's not in Phase 1 or Phase 2 scope today.
+
+---
+
+## Consequences
+
+### ✅ Positive
+- Fits the existing React frontend without introducing a second rendering paradigm
+- Fast to build the impact-analysis view without hand-rolling pan/zoom/selection
+- Layout engine (elkjs/dagre) is swappable independent of the rendering library
+
+### ⚠️ Negative
+- Not the right tool if a future feature needs to render very large graphs — would need a second library for that case
+
+### 🛡️ Mitigation
+- Scope react-flow explicitly to local-neighborhood views (impact analysis, single-artifact dependency trees); revisit per the trigger above if a full-graph feature is scoped later
+
+---
+
+## Related Decisions
+
+- [ADR-011: Graph Modeling via Postgres Closure Table](./adr-011-graph-modeling.mdx) — the data this renders
+
+## References
+
+- [Roadmap M3: Impact Analysis](../planning/roadmap.mdx)
+- [react-flow documentation](https://reactflow.dev)

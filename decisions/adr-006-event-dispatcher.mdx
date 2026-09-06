@@ -65,7 +65,16 @@ Use an **Event Dispatcher** pattern for cross-domain communication:
 1. **Domains emit domain events** (e.g., `ArtifactCreated`, `UserRegistered`)
 2. **Other domains subscribe** to events they care about
 3. **Event subscriptions are registered** in container initialization
-4. **Event handling is asynchronous** (initially synchronous, queue later)
+4. **Event handling is synchronous and in-process for Phase 1** — this is a firm decision, not a placeholder. No queue (Sidekiq/RabbitMQ/Redis) until a concrete need appears (see "Revisit Trigger" below). A synchronous dispatcher means a failing subscriber surfaces immediately in the same request/response cycle instead of disappearing into a queue, which matters more than throughput while there's no production load to speak of.
+
+### Revisit Trigger
+
+Move to an async/queued dispatcher when **any** of these become true:
+- A subscriber does meaningfully slow work (external API calls, large batch processing) that would block the request
+- Request latency attributable to event fan-out exceeds acceptable p95 targets
+- A subscriber needs at-least-once delivery guarantees or retry semantics synchronous dispatch can't provide
+
+Until then, synchronous is the decision, not a temporary stopgap.
 
 ---
 
@@ -176,10 +185,9 @@ Perfect for debugging and auditing.
 - **Extensible**: Add new subscribers without changing domains
 
 ### ⚠️ Negative
-- **Eventual consistency**: Events are processed asynchronously (later)
-- **Harder to debug**: Event flow across domains is less obvious
-- **No immediate feedback**: Errors in subscribers aren't synchronous
+- **Harder to debug**: Event flow across domains is less obvious than a direct call, even when synchronous
 - **Requires discipline**: Team must follow event patterns
+- **Future eventual consistency**: Once Phase 1's synchronous dispatch moves to a queue (see Revisit Trigger above), consistency becomes eventual and errors stop surfacing in the same request
 
 ### 🛡️ Mitigation
 - **Log all events**: Make event flow visible

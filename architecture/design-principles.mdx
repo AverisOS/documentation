@@ -157,9 +157,9 @@ end
 
 ---
 
-## 6. Four-Phase Operations
+## 6. Four-Phase Operations (Selective)
 
-Every operation has four clear phases:
+Complex or critical operations get four clear phases:
 
 1. **Request**: Input struct with parameters
 2. **Verify**: Syntax/format validation (**no DB**)
@@ -168,7 +168,15 @@ Every operation has four clear phases:
 
 Each phase should be testable **independently**.
 
-### Structure
+**This is not required for every operation.** Apply the full four phases when an operation meets 2+ of these criteria:
+- Crosses domain boundaries or emits events other domains subscribe to
+- Has semantic validation beyond existence checks (e.g. circular dependency detection, authorization logic, cross-record uniqueness)
+- Sits on a critical path (artifact creation/linking, auth, security- or billing-relevant)
+- Has business rules that would otherwise leak into a controller or model
+
+Otherwise, collapse to **Validate → Command**, or **Command** alone for a pure read. See [ADR-001](../decisions/adr-001-ddd.mdx) for the full rationale and [Patterns](./patterns.mdx#pattern-0-lightweight-operation-no-side-effects) for a lightweight example.
+
+### Structure (full four-phase — use when criteria above apply)
 ```ruby
 module Traceability
   module CreateArtifact
@@ -194,6 +202,29 @@ module Traceability
       def call(request)
         # Execute: create artifact, emit events
         # Should have high confidence of success here
+      end
+    end
+  end
+end
+```
+
+### Structure (lightweight — use for trivial CRUD with no side effects)
+```ruby
+module Traceability
+  module UpdateArtifactTitle
+    class Validate
+      def call(artifact_id:, title:)
+        return Shared::Result.failure("Title is required") if title.blank?
+        artifact = @artifact_repository.find(artifact_id)
+        return Shared::Result.failure("Artifact not found") unless artifact
+        Shared::Result.success(artifact: artifact, title: title)
+      end
+    end
+
+    class Command
+      def call(artifact:, title:)
+        artifact.update!(title: title)
+        Shared::Result.success(artifact)
       end
     end
   end

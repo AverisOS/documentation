@@ -7,9 +7,68 @@ description: "Common code patterns and implementation examples for AverisOS"
 
 This guide covers the most common patterns you'll use when building operations in AverisOS.
 
+## Pattern 0: Lightweight Operation (No Side Effects)
+
+**Use when**: Trivial CRUD, a pure read, or a field update with no cross-domain effects and no semantic validation beyond "does this record exist." This is the **default** — reach for the full four-phase pattern (Pattern 1/2) only when the operation meets 2+ of the criteria in [ADR-001](../decisions/adr-001-ddd.mdx#selective-four-phase-operations).
+
+### Example: Update Artifact Title
+
+```ruby
+module Traceability
+  module UpdateArtifactTitle
+    class Validate
+      def initialize(artifact_repository:)
+        @artifact_repository = artifact_repository
+      end
+
+      def call(artifact_id:, title:)
+        return Shared::Result.failure("Title is required") if title.blank?
+        return Shared::Result.failure("Title max 500 chars") if title.length > 500
+
+        artifact = @artifact_repository.find(artifact_id)
+        return Shared::Result.failure("Artifact not found") unless artifact
+
+        Shared::Result.success(artifact: artifact, title: title)
+      end
+    end
+
+    class Command
+      def call(artifact:, title:)
+        artifact.update!(title: title)
+        Shared::Result.success(artifact)
+      end
+    end
+  end
+end
+```
+
+### Example: Pure Read (Command only, no Validate needed)
+
+```ruby
+module Traceability
+  module GetArtifact
+    class Command
+      def initialize(artifact_repository:)
+        @artifact_repository = artifact_repository
+      end
+
+      def call(artifact_id:)
+        artifact = @artifact_repository.find(artifact_id)
+        return Shared::Result.failure("Artifact not found") unless artifact
+        Shared::Result.success(artifact)
+      end
+    end
+  end
+end
+```
+
+If you find yourself adding a second DB-dependent check or a cross-domain event to one of these, that's the signal to graduate it to Pattern 1 or 2 below.
+
+---
+
 ## Pattern 1: Operation with Simple Validation
 
-**Use when**: Minimal business rules, mostly CRUD operations.
+**Use when**: A critical-path operation (e.g. registration, auth) that's still relatively simple — full four phases because it meets the "critical path" criterion in [ADR-001](../decisions/adr-001-ddd.mdx#selective-four-phase-operations), even though the validation itself is minimal. For non-critical simple CRUD, prefer [Pattern 0](#pattern-0-lightweight-operation-no-side-effects) instead.
 
 ### File Structure
 ```

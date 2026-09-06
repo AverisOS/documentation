@@ -1,0 +1,139 @@
+---
+title: "ADR-011: Graph Modeling via Postgres Closure Table"
+description: "Architecture Decision Record - How the traceability graph is stored and queried"
+---
+
+# ADR-011: Graph Modeling via Postgres Closure Table
+
+**Date**: September 2026
+**Status**: ✅ Accepted
+**Author**: Aaron
+
+---
+
+## Context
+
+The traceability graph (Customer Research → Requirement → Code → Test → Release, plus arbitrary `implements`/`validates`/`depends_on`/`related_to`/`blocks` links) is the product's core differentiator. Impact analysis ("what breaks if I change this?") and coverage-gap detection both require **transitive** traversal — not just direct relationships, but relationships of relationships, potentially many levels deep, per [PRD §8: Traceability Engine](../planning/prd.mdx).
+
+A plain adjacency-list table (`ArtifactRelationship`: `source_id`, `target_id`, `relationship_type`) is the obvious starting model, but transitive queries against it require recursive CTEs at read time. Recursive CTEs get slow and awkward as depth and fan-out grow, and this is a query pattern the product exercises constantly, not occasionally — every impact-analysis view depends on it.
+
+### Option 1: Adjacency List + Recursive CTE at Read Time
+Query transitive relationships with `WITH RECURSIVE` on every impact-analysis request.
+
+### Option 2: Adjacency List + Closure Table (This Decision)
+Keep the adjacency list as the source of truth for direct relationships (what the user actually created), and maintain a derived `ArtifactClosure` table (`ancestor_id`, `descendant_id`, `depth`) that stores every transitive pair. Impact analysis reads directly from the closure table — no recursion at request time.
+
+### Option 3: Dedicated Graph Database (Neo4j, Postgres + AGE)
+Model artifacts and relationships natively as a graph, with graph-native traversal queries.
+
+---
+
+## Decision
+
+**Stay on Postgres for Phase 1.** Use the adjacency list (`ArtifactRelationship`) as the source of truth, plus a maintained `ArtifactClosure` table as a derived index for transitive reads.
+
+- Writes to `ArtifactRelationship` (creating/removing a link) synchronously update `ArtifactClosure` in the same transaction — consistent with [ADR-006](./adr-006-event-dispatcher.mdx)'s decision to keep Phase 1 synchronous. At current design-partner scale (dozens of projects, thousands of artifacts) this write cost is negligible.
+- Impact analysis, coverage-gap detection, and dependency visualization all read from `ArtifactClosure`, giving O(1) "get everything downstream/upstream of X" lookups instead of a recursive query per request.
+- A dedicated graph database is **explicitly deferred**, not rejected — see Revisit Trigger below.
+
+---
+
+## Alternatives Considered
+
+### 1. Recursive CTE at Read Time
+**Pros**: No extra table to maintain, no write-time cost, simplest to build first
+**Cons**: Query cost grows with graph depth/fan-out on the read path that matters most (impact analysis is used constantly per the roadmap's own success metric — "≥70% of teams use weekly"); makes the core value prop feel slow exactly when it needs to feel instant
+
+**Verdict**: Wrong tradeoff — this is the one query pattern we should not make slow.
+
+### 2. Closure Table (This Decision)
+**Pros**: Fast transitive reads, still plain Postgres (no new infra), straightforward to reason about, easy to revert if wrong
+**Cons**: Write path touches two tables, closure table can grow large (`O(n²)` in the worst case for a densely connected graph), needs a rebuild strategy if it ever drifts from the adjacency list
+
+**Verdict**: Right tradeoff for Phase 1 — reads dominate writes for this feature, and design-partner scale keeps the closure table small.
+
+### 3. Dedicated Graph Database
+**Pros**: Native graph traversal, no closure-table maintenance, scales cleanly to very deep/dense graphs
+**Cons**: New infrastructure to operate before there's a scale problem to justify it; splits the data model across two stores (artifacts still need relational fields — status, ownership, timestamps); premature for 5-10 design partners
+
+**Verdict**: Right answer eventually, wrong answer now. Revisit per the trigger below.
+
+---
+
+## Revisit Trigger
+
+Reconsider a dedicated graph store when **any** of these become true:
+- Artifact count exceeds roughly 100k in a single project, or the closure table's total row count becomes unwieldy to maintain
+- Closure-table write latency (on relationship create/delete) exceeds ~50ms p95
+- Impact-analysis read latency degrades despite the closure table (e.g. because of extremely dense graphs, not just depth)
+- A feature genuinely needs graph-native capability the closure table can't express cheaply (e.g. shortest-path weighting, complex graph algorithms)
+
+Until then, Postgres + closure table is the decision, not a stopgap.
+
+---
+
+## Consequences
+
+### ✅ Positive
+- No new infrastructure — stays inside the existing Postgres/Rails stack
+- Fast, predictable reads for the feature the whole product's value proposition depends on
+- Simple mental model: adjacency list is truth, closure table is a cache of transitive reachability
+
+### ⚠️ Negative
+- Extra write-path complexity: every relationship create/delete must keep two tables consistent
+- Closure table storage grows faster than the adjacency list (transitive pairs, not just direct ones)
+- If closure-table maintenance code has a bug, the derived table can silently drift from the adjacency list
+
+### 🛡️ Mitigation
+- Keep closure-table maintenance inside the same `LinkArtifacts`/`UnlinkArtifacts` Command operations (full four-phase per [ADR-001](./adr-001-ddd.mdx), since this is exactly the kind of critical-path operation that warrants it)
+- Add a periodic consistency check (or on-demand rebuild task) that recomputes the closure table from the adjacency list and diffs against the live table
+- Revisit if/when the triggers above are hit
+
+---
+
+## Data Model
+
+```sql
+CREATE TABLE artifact_relationships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  source_artifact_id UUID NOT NULL REFERENCES artifacts(id),
+  target_artifact_id UUID NOT NULL REFERENCES artifacts(id),
+  relationship_type VARCHAR(50) NOT NULL, -- implements | validates | depends_on | related_to | blocks
+  created_by UUID NOT NULL REFERENCES users(id),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (source_artifact_id, target_artifact_id, relationship_type)
+);
+
+CREATE TABLE artifact_closures (
+  ancestor_id UUID NOT NULL REFERENCES artifacts(id),
+  descendant_id UUID NOT NULL REFERENCES artifacts(id),
+  depth INTEGER NOT NULL, -- 0 = self, 1 = direct relationship, 2+ = transitive
+  PRIMARY KEY (ancestor_id, descendant_id)
+);
+
+CREATE INDEX idx_closures_descendant ON artifact_closures(descendant_id);
+```
+
+Impact analysis for artifact `X` ("what depends on X, transitively?"):
+```sql
+SELECT a.* FROM artifacts a
+JOIN artifact_closures c ON a.id = c.descendant_id
+WHERE c.ancestor_id = :x_id AND c.depth > 0
+ORDER BY c.depth;
+```
+
+See [Database Schema](../architecture/database-schema.md) for the full Phase 1 schema.
+
+---
+
+## Related Decisions
+
+- [ADR-001: Domain-Driven Design](./adr-001-ddd.mdx) — `LinkArtifacts` as a full four-phase operation
+- [ADR-006: Event Dispatcher](./adr-006-event-dispatcher.mdx) — synchronous write path
+- [ADR-012: Impact Visualization Library](./adr-012-impact-visualization.mdx) — how this data gets rendered
+
+## References
+
+- [PRD §8: Traceability Engine](../planning/prd.mdx)
+- [Domains Overview](../domains/overview.mdx)
