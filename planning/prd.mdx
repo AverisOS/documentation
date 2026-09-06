@@ -778,17 +778,35 @@ Adds intelligence for customer needs, design, and architectural decisions, and n
 
 ---
 
-## Phase 3: Enterprise Platform
+## Phase 3: Enterprise Platform (Core)
 
 Extends the platform for large organizations with advanced governance and compliance.
 
 * Compliance workflows
-* Marketplace skills
 * Advanced governance
 * Portfolio intelligence
 * Industry-specific solutions
 * Approval workflows for high-risk work
-* **IDE integration** (VS Code, JetBrains) — moved from Phase 1; CLI covers developer experience until the core product is validated and IDE-embedded context is worth the plugin-maintenance cost
+
+---
+
+## Phase 4: Platform Extensibility
+
+Opens the platform up to third parties once the enterprise core is in place.
+
+* Marketplace skills
+* Plugin/extensibility system (custom domain creation, webhook publishing)
+* Integration marketplace
+
+Split out from Phase 3 because it's a distinct bet — third-party ecosystem investment — that shouldn't gate or be gated by enterprise governance work landing on the same timeline.
+
+---
+
+## Phase 5: IDE Integration
+
+* IDE integration (VS Code, JetBrains) — moved from Phase 1, and pushed past even the enterprise/extensibility work
+
+IDE integration gets its own phase, later than originally planned, because it's real ongoing maintenance surface (two plugin ecosystems) for a channel that isn't proven yet. The CLI (Phase 1) validates the "developers want this in their tool of choice" hypothesis more cheaply, and there's no dependency forcing IDE work earlier — it can wait until everything ahead of it has shipped.
 
 ---
 
@@ -797,8 +815,6 @@ Extends the platform for large organizations with advanced governance and compli
 Sprint planning, Kanban boards, and Waterfall stage-gates are well-solved problems — Jira and Azure DevOps already do this well, and building a competitive version of it doesn't differentiate AverisOS. Building it in Phase 1 would spend MVP time and design-partner attention on the part of the product that's least novel, at the expense of the traceability graph and impact analysis, which are the actual bet.
 
 What Phase 1 keeps from the original work-management scope is the minimum needed for traceability to mean anything: an artifact needs an owning team before "what breaks if I change this?" is a useful question to a real person. That's ownership data, not delivery-workflow tooling — see [PRD's original justification, "Why Work Management is Phase 1"](#why-work-management-is-phase-1) below, which still holds for ownership; it just doesn't require sprints or boards to be true.
-
-IDE integration is deferred past even Phase 2 because it's real ongoing maintenance surface (two plugin ecosystems) for a channel that isn't proven yet — the CLI validates the "developers want this in their tool of choice" hypothesis more cheaply.
 
 ---
 
@@ -812,7 +828,7 @@ Work management is foundational because:
 
 3. **Permissions depend on it** — Read-everything default with confidential flag requires knowing team membership and domain access.
 
-4. **CLI value is unlocked** — Context like "show me my team's work" requires the work management model to be live. (IDE integration itself is deferred to Phase 3 — see the redrawn phase boundaries above — but the CLI needs the same ownership data now.)
+4. **CLI value is unlocked** — Context like "show me my team's work" requires the work management model to be live. (IDE integration itself is deferred all the way to Phase 5 — see the redrawn phase boundaries above — but the CLI needs the same ownership data now.)
 
 5. **Metrics matter from day one** — Tracking management vs team-assigned work reveals organizational friction early. This is a discovery tool, not just a delivery tool.
 

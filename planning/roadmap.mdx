@@ -1,11 +1,11 @@
 ---
 title: "Product Roadmap"
-description: "18-month product vision and delivery timeline"
+description: "Product vision and delivery timeline across five phases"
 ---
 
 # AverisOS Roadmap
 
-An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Market Fit (Phase 2), and Enterprise Scale (Phase 3).
+An 18-month core roadmap (Phases 1-3) plus two follow-on phases: MVP & Validation (Phase 1), Market Fit (Phase 2), Enterprise Scale (Phase 3), Platform Extensibility (Phase 4), and IDE Integration (Phase 5). Phases 4 and 5 were split out of what was originally part of Phase 3 — see [PRD: Phase 4/5](./prd.mdx) for why.
 
 ---
 
@@ -306,20 +306,6 @@ An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Ma
   - Untested code scoring
   - ✓ Estimated effort: 2 weeks
 
-#### M16-17: Extensibility
-- **Plugin System**
-  - Custom domain creation
-  - Integration marketplace
-  - Webhook system (publish events)
-  - ✓ Estimated effort: 4 weeks
-  - ✓ Success metric: 10+ third-party integrations
-
-- **GraphQL API**
-  - GraphQL endpoint
-  - Powerful query language
-  - Subscriptions for real-time updates
-  - ✓ Estimated effort: 3 weeks
-
 #### M17-18: Market Expansion
 - **Mobile Apps**
   - iOS & Android apps
@@ -351,17 +337,78 @@ An 18-month product vision spanning three phases: MVP & Validation (Phase 1), Ma
 - ✓ Microservices architecture
 - ✓ Advanced analytics & ML
 - ✓ GraphQL API
-- ✓ Plugin/extensibility system
 - ✓ Mobile apps
-- ✓ IDE integration (VS Code, JetBrains) — moved from Phase 1; CLI (Phase 1) validates developer-experience demand first
+
+---
+
+## Phase 4: Platform Extensibility (Months 19-21)
+
+**Goal**: Open the platform to third-party developers once the enterprise core is stable
+
+**Timeline**: Month 19 through Month 21 (3 months)
+
+Split out from what was originally Phase 3's M16-17 "Extensibility" work — a separate bet on third-party ecosystem investment that shouldn't gate or be gated by enterprise governance timelines.
+
+### Phase 4 Deliverables
+
+- **Plugin System**
+  - Custom domain creation
+  - Integration marketplace
+  - Marketplace skills (custom AI skills published by third parties)
+  - Webhook system (publish events)
+  - ✓ Estimated effort: 4 weeks
+  - ✓ Success metric: 10+ third-party integrations
+
+### Phase 4 Success Metrics
+
+| Metric | Target | How We Measure |
+|--------|--------|-----------------|
+| Third-party integrations | 10+ | Marketplace listings |
+| Marketplace skill publishers | 5+ | Active publisher accounts |
+
+### Phase 4 Technical Focus
+
+- ✓ Plugin/extensibility system
+- ✓ Integration marketplace infrastructure
+
+---
+
+## Phase 5: IDE Integration (Months 22-24)
+
+**Goal**: Bring traceability context directly into the developer's editor, once CLI usage has validated demand
+
+**Timeline**: Month 22 through Month 24 (3 months)
+
+Deferred from Phase 1 (original PRD scope) all the way to the end of the roadmap. Two plugin ecosystems (VS Code, JetBrains) are real ongoing maintenance surface for a channel that isn't proven yet — the Phase 1 CLI validates "developers want this in their tool of choice" far more cheaply, and nothing downstream depends on IDE integration shipping earlier.
+
+### Phase 5 Deliverables
+
+- **VS Code Extension**
+  - Requirement/ADR/test context inline in the editor
+  - ✓ Estimated effort: 4 weeks
+
+- **JetBrains Plugin**
+  - Same capability set as the VS Code extension
+  - ✓ Estimated effort: 4 weeks
+
+### Phase 5 Success Metrics
+
+| Metric | Target | How We Measure |
+|--------|--------|-----------------|
+| IDE plugin installs | 500+ | Marketplace install counts |
+| Weekly active IDE users | 30%+ of CLI users | Product analytics |
+
+### Phase 5 Technical Focus
+
+- ✓ IDE integration (VS Code, JetBrains)
 
 ---
 
 ## Timeline Summary
 
 ```
-Now       M3        M6        M9        M12       M15       M18
-│─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────│
+Now       M3        M6        M9        M12       M15       M18        M21        M24
+│─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────────┼──────────┼────│
 Phase 1: MVP & Validation
 ├─ Core Traceability (M1-2)
 ├─ Impact Analysis (M3)
@@ -377,10 +424,15 @@ Phase 1: MVP & Validation
                                         Phase 3: Enterprise
                                         ├─ Enterprise Features (M13-14)
                                         ├─ Microservices (M14-15)
-                                        ├─ Analytics (M15-16)
-                                        ├─ Extensibility (M16-17)
-                                        └─ Market Expansion (M17-18+)
+                                        └─ Analytics (M15-16)
+                                                              Phase 4: Extensibility
+                                                              └─ Plugin Marketplace (M17-18)
+                                                                         Phase 5: IDE Integration
+                                                                         ├─ VS Code (M19-20)
+                                                                         └─ JetBrains (M21+)
 ```
+
+Note: the M17-18 and M19+ labels above are approximate — Phase 4/5 timing wasn't re-planned in detail when they were split out of the original Phase 3, since neither is on the critical path to anything earlier. Treat these as placeholders until Phase 3 is closer to done.
 
 ---
 
@@ -391,6 +443,8 @@ Phase 1: MVP & Validation
 3. **Git Integration Demand**: Design partners need and use GitHub/GitLab sync
 4. **Self-Hosted Demand**: 3-5 customers want self-hosted by end of Phase 2
 5. **Enterprise Growth**: Market supports 10+ enterprise customers by Phase 3
+6. **Extensibility Demand**: Enterprise customers or design partners ask for third-party integrations before Phase 4 starts
+7. **IDE Demand Signal**: CLI usage in Phase 1-3 shows enough engagement to justify Phase 5's plugin-maintenance cost
 
 ## Risk Mitigation
 
@@ -409,7 +463,9 @@ Phase 1: MVP & Validation
 | Phase 1 (M1-6) | 3-4 engineers + 1 PM | $30k | — | — | — | $0 |
 | Phase 1 (M4-6) | 3-4 engineers + 1 PM | $30k | $5k | — | — | $5k |
 | Phase 2 (M7-12) | 4-6 engineers + 2 PM/ops | $40k | $8k | $10k | $20k | $38k |
-| Phase 3 (M13-18) | 6-10 engineers + 3 PM/ops | $50k | — | $40k | $80k | $120k |
+| Phase 3 (M13-16) | 6-10 engineers + 3 PM/ops | $50k | — | $40k | $80k | $120k |
+| Phase 4 (M17-18, placeholder) | 6-10 engineers + 3 PM/ops | $50k | — | $40k | $80k | $120k |
+| Phase 5 (M19-21, placeholder) | 6-10 engineers + 3 PM/ops | $50k | — | $40k | $80k | $120k |
 
 ---
 
