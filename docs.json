@@ -59,7 +59,8 @@
           "architecture/overview",
           "architecture/design-principles",
           "architecture/patterns",
-          "architecture/monorepo-structure"
+          "architecture/monorepo-structure",
+          "architecture/monitoring"
         ]
       },
       {
@@ -125,7 +126,8 @@
           "architecture/overview",
           "architecture/design-principles",
           "architecture/patterns",
-          "architecture/monorepo-structure"
+          "architecture/monorepo-structure",
+          "architecture/monitoring"
         ]
       },
       {
