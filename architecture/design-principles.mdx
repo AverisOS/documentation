@@ -112,6 +112,20 @@ end
 ```
 
 ### ✓ Right: All dependencies explicit
+
+Preferred, via `dry-rails`' auto-injection (`AverisOS::Deps`, see [Monorepo Structure](./monorepo-structure.mdx#di-container-dry-rails)):
+```ruby
+class Command
+  include AverisOS::Deps["repositories.user", "repositories.artifact"]
+
+  def call(request)
+    user = @user_repository.find(request.user_id)
+    artifact = @artifact_repository.create(...)
+  end
+end
+```
+
+Equivalent by hand, when you want to pass a test double without touching the container (or in code that predates a given registration):
 ```ruby
 class Command
   def initialize(user_repository:, artifact_repository:)
@@ -125,6 +139,8 @@ class Command
   end
 end
 ```
+
+Either way: no `new` calls on collaborators, no global state, no hidden dependencies.
 
 ---
 

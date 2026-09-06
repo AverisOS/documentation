@@ -272,41 +272,45 @@ end
 
 ---
 
-### `/lib`
+### DI Container: dry-rails
 
-**Purpose**: Infrastructure code.
+The DI container is **not** hand-rolled — it's the `dry-rails` gem (Rails integration for `dry-system`), not just the lower-level `dry-container`/`dry-auto_inject` gems directly. Adding `gem "dry-rails"` and naming the Rails app module `AverisOS` (in `config/application.rb`) is enough for its railtie to auto-create two constants at boot: `AverisOS::Container` (a `Dry::System::Container` subclass) and `AverisOS::Deps` (the injector for `include Deps[...]`).
 
-**Contains**:
-- DI container setup
-- Middleware
-- Configuration
-- CLI commands
-
-**Example**:
+**What you write** — `config/initializers/system.rb`, which is `class_eval`'d against the container:
 ```ruby
-# lib/container.rb
-require 'dry/container'
-require 'dry/auto_inject'
+Dry::Rails.container do
+  register("services.event_dispatcher") { Shared::EventDispatcher.new }
 
-module AverisOS
-  Container = Dry::Container.new
+  # As repositories/domain services are built:
+  # register("repositories.artifact") { Shared::BaseRepository.new(model_class: Artifact) }
+  # register("domains.traceability") { Traceability::TraceabilityService.new(container: AverisOS::Container) }
+end
+```
 
-  # Register shared services
-  Container.register('services.event_dispatcher') { EventDispatcher.new }
+**Resolving a dependency directly**:
+```ruby
+AverisOS::Container["services.event_dispatcher"]
+```
 
-  # Register repositories
-  Container.register('repositories.artifact') { ArtifactRepository.new }
-  Container.register('repositories.user') { UserRepository.new }
+**Auto-injection via `Deps`** — preferred inside domain operations, since it avoids hand-writing `initialize(foo:, bar:)` boilerplate for every class:
+```ruby
+module Traceability
+  module LinkArtifacts
+    class Command
+      include AverisOS::Deps["services.event_dispatcher"]
 
-  # Register domains
-  Container.register('domains.traceability') do
-    Traceability::TraceabilityService.new(container: Container)
-  end
-  Container.register('domains.authentication') do
-    Authentication::AuthenticationService.new(container: Container)
+      def call(request, source:, target:)
+        # @event_dispatcher is injected automatically (name is the key's
+        # last segment); still overridable with a keyword arg in tests.
+        ...
+        @event_dispatcher.dispatch(ArtifactsLinked.new(...))
+      end
+    end
   end
 end
 ```
+
+`/lib` remains for infrastructure code that isn't the container itself — middleware, non-Rails CLI helpers, etc.
 
 ---
 

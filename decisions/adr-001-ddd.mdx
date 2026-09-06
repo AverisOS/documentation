@@ -42,7 +42,7 @@ Adopt **Domain-Driven Design (DDD)** with Rails as the infrastructure layer:
 - **Models**: Thin, persistence-only (just associations and validations)
 - **Controllers**: Routing and HTTP concerns only (no business logic)
 - **Domain Layer**: Request/Verify/Validate/Command pattern with dry-rb, applied **selectively** — see "Selective Four-Phase Operations" below
-- **Dependency Injection**: All dependencies explicitly injected (via dry-container)
+- **Dependency Injection**: All dependencies explicitly injected via `dry-rails` (`AverisOS::Container` / `AverisOS::Deps`)
 - **Error Handling**: Result monad (success/failure, no exceptions)
 - **Communication**: Events for cross-domain communication (loose coupling), dispatched **synchronously in-process** for Phase 1 (see [ADR-006](./adr-006-event-dispatcher.mdx))
 
@@ -206,18 +206,15 @@ result.and_then { |artifact| link_to_requirement(artifact) }
 ```
 
 ### Dependency Injection
+
+Via `dry-rails` (the container/injector gem actually used — see [Monorepo Structure](../architecture/monorepo-structure.mdx#di-container-dry-rails)), not a hand-rolled container:
 ```ruby
-# All dependencies explicit
 class Command
-  def initialize(artifact_repo:, user_repo:, event_dispatcher:)
-    @artifact_repo = artifact_repo
-    @user_repo = user_repo
-    @event_dispatcher = event_dispatcher
-  end
+  include AverisOS::Deps["repositories.artifact", "repositories.user", "services.event_dispatcher"]
 
   def call(request)
-    user = @user_repo.find(request.user_id)
-    artifact = @artifact_repo.create(...)
+    user = @user_repository.find(request.user_id)
+    artifact = @artifact_repository.create(...)
     @event_dispatcher.dispatch(ArtifactCreated.new(...))
   end
 end

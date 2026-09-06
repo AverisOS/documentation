@@ -106,7 +106,7 @@ result.on_failure { |error| render json: error, status: :unprocessable_entity }
 ```
 
 ### Dependency Injection
-Container manages all dependencies. Services receive what they need—no hidden globals or singletons.
+`dry-rails` (not raw `dry-container`) provides `AverisOS::Container` and the `AverisOS::Deps` auto-injection mixin. Services receive what they need — no hidden globals or singletons. See [Monorepo Structure](./monorepo-structure.mdx#di-container-dry-rails).
 
 ### Event-Driven Communication
 Domains communicate via events published to an in-process `EventDispatcher`, handled **synchronously in the same request** for Phase 1 — no queue, no Sidekiq. This keeps failures visible immediately (a failing subscriber shows up in the same request instead of silently disappearing into a queue) and avoids operating a job system before it's needed. See [ADR-006](../decisions/adr-006-event-dispatcher.mdx) for the revisit trigger for moving to async.
@@ -130,8 +130,9 @@ Domains communicate via events published to an in-process `EventDispatcher`, han
 | Frontend | React 18 + Vite | Fast SPA build/dev |
 | UI Framework | shadcn/ui + Tailwind | Customizable components |
 | Graph Visualization | react-flow (`@xyflow/react`) + elkjs | Impact analysis / dependency graph rendering (see [ADR-012](../decisions/adr-012-impact-visualization.mdx)) |
-| Backend | Rails 8.0.x (API mode) | JSON API and domain logic |
-| Language | Ruby 3.3.x | Productive, readable |
+| Backend | Rails 8.1.x (API mode) | JSON API and domain logic |
+| Language | Ruby 3.4.x | Productive, readable |
+| DI Container | dry-rails (`AverisOS::Container` / `AverisOS::Deps`) | Dependency injection, auto-registration |
 | Database | PostgreSQL 15+ | Reliable RDBMS; also stores the artifact graph (see [ADR-011](../decisions/adr-011-graph-modeling.mdx)) |
 | Event Dispatch | In-process `EventDispatcher` | Synchronous cross-domain events (Phase 1) |
 | Cache / Job Queue | Redis + Sidekiq | **Phase 2+** — not needed while events are synchronous |
