@@ -169,19 +169,22 @@ averis-os/
 **Purpose**: Shared code used across all domains.
 
 **Contains**:
-- `Result` monad and error handling
 - `EventDispatcher` for cross-domain communication
 - Base repository class
 - Common error types
 - Shared utilities
+
+Result/error handling itself is `dry-monads` (see [ADR-002](../decisions/adr-002-result-monad.mdx)) — a gem dependency, not domain-specific code, so it isn't part of `shared`.
 
 **Who uses it**: Every domain imports from `shared`.
 
 **Example**:
 ```ruby
 # In any domain
-result = Shared::Result.success(artifact)
-return result.and_then { |a| next_operation(a) }
+include Dry::Monads[:result]
+
+result = Success(artifact)
+return result.bind { |a| next_operation(a) }
 ```
 
 ---
@@ -202,11 +205,13 @@ domains/traceability/domain/
 ├── traceability_service.rb     # Entry point
 ├── create_artifact/            # Operation
 │   ├── request.rb
+│   ├── request_factory.rb
 │   ├── verify.rb
 │   ├── validate.rb
 │   └── command.rb
 ├── link_artifacts/             # Operation
 │   ├── request.rb
+│   ├── request_factory.rb
 │   ├── verify.rb
 │   ├── validate.rb
 │   └── command.rb
@@ -214,6 +219,13 @@ domains/traceability/domain/
     ├── artifact_created.rb
     └── artifacts_linked.rb
 ```
+
+A `Command` that subclasses `AverisOS::BaseCommand` (`app/lib/averis_os/base_command.rb`
+— a gem-adjacent app-level base class, not `domains/shared`, since it isn't
+domain-specific) gets its `Verify -> Validate -> perform` wiring for free; the
+service just calls `Command.new.call(request)`. See
+[Patterns & Examples](./patterns.mdx#pattern-1-operation-with-simple-validation)
+for the full example (currently adopted by `authentication`).
 
 ---
 
@@ -236,9 +248,9 @@ module Api
         result = service.create_artifact(create_params)
 
         if result.success?
-          render json: ArtifactSerializer.new(result.value), status: 201
+          render json: ArtifactSerializer.new(result.value!), status: 201
         else
-          render json: { error: result.error }, status: 422
+          render json: { error: result.failure }, status: 422
         end
       end
     end
@@ -410,12 +422,14 @@ end
 ```ruby
 # In GitIntegration domain
 class SyncCommits
+  include Dry::Monads[:result]
+
   def call(commit)
     # Emit event for other domains
     @event_dispatcher.dispatch(
       CommitSynced.new(hash: commit.hash, message: commit.message)
     )
-    Shared::Result.success
+    Success()
   end
 end
 

@@ -172,6 +172,8 @@ end
 
 # Verify phase uses dry-validation
 class Verify
+  extend Dry::Monads[:result]
+
   Schema = Dry::Validation.Schema do
     required(:project_id) { filled? & int? }
     required(:type) { filled? & str? }
@@ -180,8 +182,8 @@ class Verify
 
   def self.call(request)
     result = Schema.call(request.to_h)
-    return Shared::Result.failure(result.errors) if result.failure?
-    Shared::Result.success(request)
+    return Failure(result.errors) if result.failure?
+    Success(request)
   end
 end
 ```
@@ -316,6 +318,8 @@ end
 
 # Verify phase uses validation schema
 class CreateArtifact::Verify
+  extend Dry::Monads[:result]
+
   Schema = Dry::Validation.Schema do
     required(:project_id) { filled? & int? }
     required(:type) { filled? & included_in?(['requirement', 'feature']) }
@@ -324,13 +328,15 @@ class CreateArtifact::Verify
 
   def self.call(request)
     result = Schema.call(request.to_h)
-    return Shared::Result.failure(result.errors) if result.failure?
-    Shared::Result.success(request)
+    return Failure(result.errors) if result.failure?
+    Success(request)
   end
 end
 
 # Command phase uses request attributes
 class CreateArtifact::Command
+  include Dry::Monads[:result]
+
   def call(request)
     artifact = @repository.create(
       project_id: request.project_id,
@@ -338,7 +344,7 @@ class CreateArtifact::Command
       title: request.title,
       description: request.description
     )
-    Shared::Result.success(artifact)
+    Success(artifact)
   end
 end
 ```

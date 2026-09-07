@@ -53,7 +53,7 @@ describe CreateArtifact::Verify do
       request = Request.new(project_id: 1, type: "requirement", title: "")
       result = Verify.call(request)
       expect(result).to be_failure
-      expect(result.error).to include("required")
+      expect(result.failure).to include("required")
     end
 
     it "rejects title > 500 chars" do
@@ -64,7 +64,7 @@ describe CreateArtifact::Verify do
       )
       result = Verify.call(request)
       expect(result).to be_failure
-      expect(result.error).to include("max 500")
+      expect(result.failure).to include("max 500")
     end
 
     it "accepts valid title" do
@@ -133,7 +133,7 @@ describe CreateArtifact::Validate do
 
       result = validate.call(request)
       expect(result).to be_failure
-      expect(result.error).to include("Project not found")
+      expect(result.failure).to include("Project not found")
     end
 
     it "accepts known project" do

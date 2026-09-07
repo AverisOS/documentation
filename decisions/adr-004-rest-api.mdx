@@ -231,7 +231,7 @@ def index
     limit: params[:limit]
   )
 
-  render json: result.value.map { |a| ArtifactSerializer.new(a) }
+  render json: result.value!.map { |a| ArtifactSerializer.new(a) }
 end
 ```
 

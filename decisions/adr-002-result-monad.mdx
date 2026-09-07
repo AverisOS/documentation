@@ -42,27 +42,33 @@ Problems with this approach:
 
 ## Decision
 
-Use a **Result monad** (success/failure) for expected errors:
+Use a **Result monad** (success/failure) for expected errors, built on **dry-monads**'
+`Success`/`Failure` types rather than a hand-rolled class (see
+[Implementation Note](#implementation-note-dry-monads-instead-of-a-custom-class) below):
 
 ```ruby
-def create_artifact(params)
-  project = repository.find_project(params[:project_id])
-  return Shared::Result.failure("Project not found") unless project
+class ArtifactService
+  include Dry::Monads[:result]
 
-  return Shared::Result.failure("Title is required") if params[:title].blank?
+  def create_artifact(params)
+    project = repository.find_project(params[:project_id])
+    return Failure("Project not found") unless project
 
-  artifact = repository.create_artifact(params)
-  @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+    return Failure("Title is required") if params[:title].blank?
 
-  Shared::Result.success(artifact)
+    artifact = repository.create_artifact(params)
+    @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
+
+    Success(artifact)
+  end
 end
 
 # Caller always knows what to expect
-result = create_artifact(params)
+result = service.create_artifact(params)
 if result.success?
-  render json: result.value
+  render json: result.value!
 else
-  render json: { error: result.error }, status: 422
+  render json: { error: result.failure }, status: 422
 end
 ```
 
@@ -97,21 +103,21 @@ Error paths are **explicit in code**:
 ```ruby
 # Clear what can fail
 result = create_artifact(params)
-       .and_then { |artifact| link_to_requirement(artifact) }
-       .and_then { |artifact| notify_watchers(artifact) }
+       .bind { |artifact| link_to_requirement(artifact) }
+       .bind { |artifact| notify_watchers(artifact) }
 
 # Obvious that we handle failures
-.match { |r| r.success? ? render_success(r.value) : render_error(r.error) }
+result.success? ? render_success(result.value!) : render_error(result.failure)
 ```
 
 ### ✓ Composability
 Chain operations elegantly:
 ```ruby
 Service.create(params)
-  .and_then { |item| validate(item) }
-  .map { |item| transform(item) }
-  .and_then { |item| save(item) }
-  .match { |r| r.success? ? handle_success(r) : handle_error(r) }
+  .bind { |item| validate(item) }
+  .fmap { |item| transform(item) }
+  .bind { |item| save(item) }
+  .either(->(item) { handle_success(item) }, ->(error) { handle_error(error) })
 ```
 
 ### ✓ Performance
@@ -126,12 +132,12 @@ Easy to test both paths:
 # Success case
 result = service.create_artifact(valid_params)
 expect(result).to be_success
-expect(result.value).to be_a(Artifact)
+expect(result.value!).to be_a(Artifact)
 
 # Failure case
 result = service.create_artifact(invalid_params)
 expect(result).to be_failure
-expect(result.error).to include("Title is required")
+expect(result.failure).to include("Title is required")
 ```
 
 ### ✓ Clarity
@@ -141,9 +147,9 @@ Developers immediately see all possible outcomes:
 # But: "This method returns a Result with success? method"
 result = create_artifact(...)
 if result.success?
-  # We have a valid artifact
+  # We have a valid artifact, via result.value!
 else
-  # We have a clear error message
+  # We have a clear error message, via result.failure
 end
 ```
 
@@ -161,7 +167,10 @@ end
 ### ⚠️ Negative
 - **Different from Rails conventions**: Rails developers expect exceptions
 - **More verbose**: Every method returns Result instead of raising
-- **Chaining syntax**: Some developers find `and_then` unfamiliar
+- **Chaining syntax**: Some developers find `bind`/`fmap` unfamiliar
+- **No unified accessor**: unlike a hand-rolled Result, dry-monads' `Success`/`Failure`
+  don't share a `.value`/`.error` interface — callers must check `success?` first, then
+  call `.value!` (raises on Failure) or `.failure` (only defined on Failure)
 - **Legacy integration**: If calling Rails code, must handle its exceptions
 
 ### 🛡️ Mitigation
@@ -172,85 +181,181 @@ end
 
 ---
 
-## Implementation
+## Implementation Note: dry-monads instead of a custom class
 
-### Basic Result Monad
+The Result type was originally a hand-rolled `Shared::Result` class living in
+`domains/shared/lib/result.rb`. It has since been replaced with
+[dry-monads](https://dry-rb.org/gems/dry-monads/)'s `Result` module (`Success`/`Failure`),
+for a few reasons:
+
+- **Less code to maintain**: the custom class duplicated what a well-tested library
+  already provides, for no behavioral gain.
+- **Already in the dependency tree**: this codebase already pulls in `dry-struct` and
+  `dry-validation` (see [ADR-005](./adr-005-dry-rb.mdx)) — `dry-monads` is the same
+  family and shares its conventions.
+- **Richer combinator set**: `bind` (chain, equivalent to the old `and_then`), `fmap`
+  (map over the success value), `or`/`or_fmap`, `either`, and pattern-matching via
+  `case ... in Success(value) / in Failure(error)` — more than the hand-rolled class
+  offered.
+
+**One real tradeoff**: the custom `Shared::Result` supported an extra `data:` kwarg
+payload alongside `value`/`error` (`Shared::Result.success(value, **data)`). Nothing in
+the shipped codebase ever used it, but [patterns.mdx](../architecture/patterns.mdx)
+documented a planned use for it — passing prefetched records (e.g. `source`/`target`
+artifacts) from a `Validate` phase forward into a `Command` phase without a second
+lookup. `dry-monads`' `Success`/`Failure` take exactly one payload, so that pattern is
+now expressed by bundling the extra values into a plain `Struct` and returning *that*
+struct as the single `Success` value — the same approach
+`Authentication::RegisterUser::Command` already uses for its two-value `user` +
+`organization` result:
+
 ```ruby
-module Shared
-  class Result
-    attr_reader :error, :value, :data
+module Authentication
+  module RegisterUser
+    Registered = Struct.new(:user, :organization, keyword_init: true)
 
-    def self.success(value = nil, **data)
-      new(success: true, value: value, data: data)
-    end
-
-    def self.failure(error, **data)
-      new(success: false, error: error, data: data)
-    end
-
-    def initialize(success:, value: nil, error: nil, data: {})
-      @success = success
-      @value = value
-      @error = error
-      @data = data
-    end
-
-    def success?
-      @success
-    end
-
-    def failure?
-      !@success
-    end
-
-    def and_then
-      return self if failure?
-      yield(value)
-    end
-
-    def map
-      return self if failure?
-      Result.success(yield(value))
-    end
-
-    def match
-      if success?
-        yield(self)
-      else
-        yield(self)
+    class Command
+      include Dry::Monads[:result]
+      # ...
+      def call(request)
+        # ...
+        Success(Registered.new(user: user, organization: organization))
       end
     end
   end
 end
 ```
 
-### Usage Pattern
+See `patterns.mdx`'s "Example: Link Artifacts with Circular Dependency Detection" for
+the equivalent applied to a multi-record prefetch.
+
+---
+
+## Implementation
+
+### Real Usage: Authentication::RegisterUser
+
 ```ruby
-# In domain service
-def create_artifact(project_id:, title:, description:)
-  # Step 1: Verify (format validation)
-  verify_result = Verify.call(Request.new(project_id, title))
-  return verify_result if verify_result.failure?
+# Verify — schema-shape checks (dry-validation contract), class method
+module Authentication
+  module RegisterUser
+    class Verify < Dry::Validation::Contract
+      extend Dry::Monads[:result]
 
-  # Step 2: Validate (semantic validation)
-  validate_result = Validate.new(repositories).call(verify_result.value)
-  return validate_result if validate_result.failure?
+      params do
+        optional(:email).maybe(:string)
+        optional(:password).maybe(:string)
+        optional(:organization_name).maybe(:string)
+      end
 
-  # Step 3: Command (execute)
-  Command.new(repositories, event_dispatcher).call(validate_result.value, **validate_result.data)
+      # ... rules ...
+
+      def self.call(request)
+        result = new.call(
+          email: request.email,
+          password: request.password,
+          organization_name: request.organization_name
+        )
+
+        return Success(request) if result.success?
+        Failure(result.errors.to_a.first.text)
+      end
+    end
+  end
 end
+```
 
-# In controller
-result = service.create_artifact(
-  project_id: params[:project_id],
-  title: params[:title],
-  description: params[:description]
-)
+```ruby
+# Validate — business-rule checks needing a DB lookup, instance method
+module Authentication
+  module RegisterUser
+    class Validate < Dry::Validation::Contract
+      include Dry::Monads[:result]
 
-if result.success?
-  render json: serialize(result.value), status: 201
-else
-  render json: { error: result.error }, status: 422
+      option :user_repository
+      option :organization_repository
+
+      # ... rules ...
+
+      def call(request)
+        result = super(
+          normalized_email: request.normalized_email,
+          organization_slug: request.organization_slug
+        )
+
+        return Success(request) if result.success?
+        Failure(result.errors.to_a.first.text)
+      end
+    end
+  end
+end
+```
+
+```ruby
+# Command — executes the write, bundles multiple return values into a Struct
+module Authentication
+  module RegisterUser
+    Registered = Struct.new(:user, :organization, keyword_init: true)
+
+    class Command
+      include Dry::Monads[:result]
+      include AverisOS::Deps[
+        user_repository: "repositories.user",
+        organization_repository: "repositories.organization",
+        organization_membership_repository: "repositories.organization_membership",
+        event_dispatcher: "services.event_dispatcher"
+      ]
+
+      def call(request)
+        # ... create user, organization, membership in a transaction ...
+
+        @event_dispatcher.dispatch(UserRegistered.new(user_id: user.id, organization_id: organization.id))
+        Success(Registered.new(user: user, organization: organization))
+      rescue ActiveRecord::RecordInvalid => e
+        Failure(e.record.errors.full_messages.join(", "))
+      end
+    end
+  end
+end
+```
+
+```ruby
+# Composing the three phases
+module Authentication
+  class AuthenticationService
+    def register_user(email:, password:, organization_name:)
+      request = RegisterUser::Request.new(email: email, password: password, organization_name: organization_name)
+
+      RegisterUser::Verify.call(request)
+        .bind { RegisterUser::Validate.new.call(request) }
+        .bind { RegisterUser::Command.new.call(request) }
+    end
+  end
+end
+```
+
+### Usage Pattern in a Controller
+
+```ruby
+class Api::V1::RegistrationsController < Devise::RegistrationsController
+  def create
+    result = Authentication::AuthenticationService.new.register_user(
+      email: params[:email],
+      password: params[:password],
+      organization_name: params[:organization_name]
+    )
+
+    if result.success?
+      registered = result.value!
+      sign_in(registered.user)
+      render json: {
+        user: { id: registered.user.id, email: registered.user.email },
+        organization: { id: registered.organization.id, name: registered.organization.name }
+      }, status: :created
+    else
+      render json: { error: result.failure }, status: :unprocessable_entity
+    end
+  end
 end
 ```
 

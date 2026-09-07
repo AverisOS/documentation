@@ -87,9 +87,9 @@ class ArtifactsController < ApplicationController
     )
 
     if result.success?
-      render json: { data: serialize(result.value) }, status: 201
+      render json: { data: serialize(result.value!) }, status: 201
     else
-      render json: { error: result.error }, status: 422
+      render json: { error: result.failure }, status: 422
     end
   end
 end
@@ -158,16 +158,23 @@ end
 
 ### ✓ Right: Result monad
 ```ruby
+include Dry::Monads[:result]
+
 def call(request)
-  return Shared::Result.failure("Project not found") if project.nil?
-  return Shared::Result.failure("Invalid type") unless valid_type?(type)
-  Shared::Result.success(artifact)
+  return Failure("Project not found") if project.nil?
+  return Failure("Invalid type") unless valid_type?(type)
+  Success(artifact)
 end
 ```
 
+Built on [dry-monads](https://dry-rb.org/gems/dry-monads/) — see [ADR-002](../decisions/adr-002-result-monad.mdx).
+`result.success?`/`result.failure?` tell you which branch you're in; unwrap with
+`result.value!` (raises on Failure) or `result.failure` (only defined on Failure) —
+there's no unified `.value`/`.error` accessor across both.
+
 **Benefits**:
 - Error paths are **visible** in code
-- Operations are **composable** with `and_then`, `map`, etc.
+- Operations are **composable** with `bind`, `fmap`, etc.
 - **No performance overhead** from exception handling
 - **Easy to test** both success and failure paths
 
@@ -228,19 +235,25 @@ end
 ```ruby
 module Traceability
   module UpdateArtifactTitle
+    ArtifactAndTitle = Struct.new(:artifact, :title, keyword_init: true)
+
     class Validate
+      include Dry::Monads[:result]
+
       def call(artifact_id:, title:)
-        return Shared::Result.failure("Title is required") if title.blank?
+        return Failure("Title is required") if title.blank?
         artifact = @artifact_repository.find(artifact_id)
-        return Shared::Result.failure("Artifact not found") unless artifact
-        Shared::Result.success(artifact: artifact, title: title)
+        return Failure("Artifact not found") unless artifact
+        Success(ArtifactAndTitle.new(artifact: artifact, title: title))
       end
     end
 
     class Command
+      include Dry::Monads[:result]
+
       def call(artifact:, title:)
         artifact.update!(title: title)
-        Shared::Result.success(artifact)
+        Success(artifact)
       end
     end
   end
@@ -267,10 +280,12 @@ end
 ### ✓ Right: Loose coupling
 ```ruby
 class CreateArtifact::Command
+  include Dry::Monads[:result]
+
   def call(request)
     artifact = create_artifact(request)
     @event_dispatcher.dispatch(ArtifactCreated.new(artifact_id: artifact.id))
-    Shared::Result.success(artifact)
+    Success(artifact)
   end
 end
 
@@ -296,15 +311,15 @@ When something will fail, fail **early** and with **clear error messages**.
 
 ### ❌ Wrong: Vague errors
 ```ruby
-Shared::Result.failure("Error")
-Shared::Result.failure("Invalid")
+Failure("Error")
+Failure("Invalid")
 ```
 
 ### ✓ Right: Specific, actionable errors
 ```ruby
-Shared::Result.failure("Title is required (max 500 characters)")
-Shared::Result.failure("Project not found (ID: #{request.project_id})")
-Shared::Result.failure("User is not authorized to access this project")
+Failure("Title is required (max 500 characters)")
+Failure("Project not found (ID: #{request.project_id})")
+Failure("User is not authorized to access this project")
 ```
 
 ---

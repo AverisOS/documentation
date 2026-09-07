@@ -294,6 +294,8 @@ end
 ### Using in Domain Service
 ```ruby
 class CreateArtifact::Command
+  include Dry::Monads[:result]
+
   def initialize(artifact_repository:, event_dispatcher:)
     @artifact_repository = artifact_repository
     @event_dispatcher = event_dispatcher
@@ -317,7 +319,7 @@ class CreateArtifact::Command
       )
     )
 
-    Shared::Result.success(artifact)
+    Success(artifact)
   end
 end
 ```

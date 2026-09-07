@@ -16,26 +16,32 @@ This guide covers the most common patterns you'll use when building operations i
 ```ruby
 module Traceability
   module UpdateArtifactTitle
+    ArtifactAndTitle = Struct.new(:artifact, :title, keyword_init: true)
+
     class Validate
+      include Dry::Monads[:result]
+
       def initialize(artifact_repository:)
         @artifact_repository = artifact_repository
       end
 
       def call(artifact_id:, title:)
-        return Shared::Result.failure("Title is required") if title.blank?
-        return Shared::Result.failure("Title max 500 chars") if title.length > 500
+        return Failure("Title is required") if title.blank?
+        return Failure("Title max 500 chars") if title.length > 500
 
         artifact = @artifact_repository.find(artifact_id)
-        return Shared::Result.failure("Artifact not found") unless artifact
+        return Failure("Artifact not found") unless artifact
 
-        Shared::Result.success(artifact: artifact, title: title)
+        Success(ArtifactAndTitle.new(artifact: artifact, title: title))
       end
     end
 
     class Command
+      include Dry::Monads[:result]
+
       def call(artifact:, title:)
         artifact.update!(title: title)
-        Shared::Result.success(artifact)
+        Success(artifact)
       end
     end
   end
@@ -48,14 +54,16 @@ end
 module Traceability
   module GetArtifact
     class Command
+      include Dry::Monads[:result]
+
       def initialize(artifact_repository:)
         @artifact_repository = artifact_repository
       end
 
       def call(artifact_id:)
         artifact = @artifact_repository.find(artifact_id)
-        return Shared::Result.failure("Artifact not found") unless artifact
-        Shared::Result.success(artifact)
+        return Failure("Artifact not found") unless artifact
+        Success(artifact)
       end
     end
   end
@@ -76,6 +84,7 @@ domains/authentication/domain/
 ├── authentication_service.rb
 ├── register_user/
 │   ├── request.rb
+│   ├── request_factory.rb
 │   ├── verify.rb
 │   ├── validate.rb
 │   └── command.rb
@@ -83,77 +92,157 @@ domains/authentication/domain/
 
 ### Implementation
 
-**Request** (input struct):
+See `backend/domains/authentication/domain/register_user/` for the full,
+current implementation. Password hashing is delegated to Devise
+(`database_authenticatable`), not called directly, and `Verify`/`Validate`
+are `Dry::Validation::Contract`s per [ADR-005](../decisions/adr-005-dry-rb.mdx)
+rather than hand-rolled checks.
+
+**Request** (input struct — normalization and derived values live here so
+every phase reasons about the same value):
 ```ruby
 module Authentication
   module RegisterUser
     class Request
-      attr_reader :email, :password, :name
+      attr_reader :email, :password, :organization_name
 
-      def initialize(email:, password:, name:)
+      def initialize(email:, password:, organization_name:)
         @email = email
         @password = password
-        @name = name
+        @organization_name = organization_name
+      end
+
+      # Devise is configured with case_insensitive_keys/strip_whitespace_keys
+      # for :email, so every lookup here has to normalize the same way or
+      # Validate would wave through "A@Example.com" when "a@example.com"
+      # already exists.
+      def normalized_email
+        email.to_s.strip.downcase
+      end
+
+      def organization_slug
+        organization_name.to_s.parameterize
       end
     end
   end
 end
 ```
 
-**Verify** (format validation, no DB):
+**RequestFactory** (translates raw params into the typed Request):
+
+Callers — controllers, console scripts, background jobs — never build a
+`Request` by hand. `RequestFactory.build` takes **explicit keyword
+arguments** matching the `Request`'s own keywords, never a raw
+`params`/hash blob, so a typo raises `ArgumentError` instead of silently
+producing `nil`:
+
 ```ruby
 module Authentication
   module RegisterUser
-    class Verify
+    class RequestFactory
+      def self.build(email:, password:, organization_name:)
+        Request.new(email: email, password: password, organization_name: organization_name)
+      end
+    end
+  end
+end
+```
+
+**Verify** (format validation, no DB) — a `Dry::Validation::Contract`:
+```ruby
+module Authentication
+  module RegisterUser
+    class Verify < Dry::Validation::Contract
+      extend Dry::Monads[:result]
+
+      params do
+        optional(:email).maybe(:string)
+        optional(:password).maybe(:string)
+        optional(:organization_name).maybe(:string)
+      end
+
+      rule(:password) do
+        key.failure("Password is required") if value.blank?
+        key.failure("Password must be 8+ characters") if value.present? && value.length < 8
+      end
+
+      # ... email/organization_name rules follow the same shape
+
       def self.call(request)
-        return Shared::Result.failure("Email is required") if request.email.blank?
-        return Shared::Result.failure("Email is invalid") unless email_valid?(request.email)
-        return Shared::Result.failure("Password is required") if request.password.blank?
-        return Shared::Result.failure("Password must be 8+ characters") if request.password.length < 8
-
-        Shared::Result.success(request)
-      end
-
-      private
-
-      def self.email_valid?(email)
-        /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i.match?(email)
+        result = new.call(email: request.email, password: request.password, organization_name: request.organization_name)
+        return Success(request) if result.success?
+        Failure(result.errors.to_a.first.text)
       end
     end
   end
 end
 ```
 
-**Validate** (semantic validation, with DB):
+**Validate** (semantic validation, with DB) — also a `Contract`, since
+`Dry::Validation` handles both schema-shape and DB-backed rules:
+
+`AverisOS::BaseCommand` (below) dispatches to `Verify` and `Validate`
+identically — both need a class-level `.call(request)`. `Contract#call` is
+an instance method, so add a thin `self.call` delegator matching `Verify`'s
+shape:
+
 ```ruby
 module Authentication
   module RegisterUser
-    class Validate
-      def initialize(user_repository:)
-        @user_repository = user_repository
+    class Validate < Dry::Validation::Contract
+      include Dry::Monads[:result]
+      include AverisOS::Deps["repositories.user", "repositories.organization"]
+
+      params do
+        required(:normalized_email).filled(:string)
+        required(:organization_slug).filled(:string)
+      end
+
+      rule(:normalized_email) do
+        key.failure("Email already registered") if user_repository.exists?(email: value)
+      end
+
+      rule(:organization_slug) do
+        key.failure("Organization name is already taken") if organization_repository.exists?(slug: value)
       end
 
       def call(request)
-        # Check if user already exists
-        if @user_repository.find_by_email(request.email)
-          return Shared::Result.failure("Email already registered")
-        end
+        result = super(normalized_email: request.normalized_email, organization_slug: request.organization_slug)
+        return Success(request) if result.success?
+        Failure(result.errors.to_a.first.text)
+      end
 
-        Shared::Result.success(request)
+      # Convention entry point AverisOS::BaseCommand dispatches to
+      # (matches Verify's self.call).
+      def self.call(request)
+        new.call(request)
       end
     end
   end
 end
 ```
 
-**Command** (execute operation):
+**Command** (execute operation) — subclasses `AverisOS::BaseCommand`:
 
-See `backend/domains/authentication/domain/register_user/` for the full, current implementation — password hashing is delegated to Devise (`database_authenticatable`), not called directly.
+`AverisOS::BaseCommand` (`app/lib/averis_os/base_command.rb`) owns the
+`Verify -> Validate -> perform` orchestration: it resolves the sibling
+`Verify` and `Validate` classes by naming convention (same namespace as the
+`Command`), runs them in order via `Dry::Monads` `.bind`, and only calls
+`perform` if both succeed. `Verify` is **required** — `BaseCommand` raises
+`NameError` if a command has no sibling `Verify`. `Validate` is
+**optional** — a command with no DB-dependent checks simply has no sibling
+`Validate` class, and `BaseCommand` skips it rather than erroring.
+Subclasses implement `perform(request)`, never `call` — `BaseCommand#call`
+is the only thing allowed to invoke `perform`, and `perform` is
+automatically re-protected on every subclass (a `method_added` hook), so
+external callers can't bypass `Verify`/`Validate` by calling it directly.
 
 ```ruby
 module Authentication
   module RegisterUser
-    class Command
+    Registered = Struct.new(:user, :organization, keyword_init: true)
+
+    class Command < AverisOS::BaseCommand
       include AverisOS::Deps[
         user_repository: "repositories.user",
         organization_repository: "repositories.organization",
@@ -161,22 +250,50 @@ module Authentication
         event_dispatcher: "services.event_dispatcher"
       ]
 
-      def call(request)
+      def perform(request)
         user = nil
         organization = nil
 
         ActiveRecord::Base.transaction do
-          organization = @organization_repository.create(name: request.organization_name, slug: request.organization_name.parameterize)
-          user = @user_repository.create(email: request.email, password: request.password, password_confirmation: request.password)
-          @organization_membership_repository.create(organization: organization, user: user, role: "owner")
+          organization = @organization_repository.create!(
+            name: request.organization_name,
+            slug: request.organization_slug
+          )
+
+          user = @user_repository.create!(
+            email: request.normalized_email,
+            password: request.password,
+            password_confirmation: request.password
+          )
+
+          @organization_membership_repository.create!(
+            organization: organization,
+            user: user,
+            role: "owner"
+          )
         end
 
         @event_dispatcher.dispatch(UserRegistered.new(user_id: user.id, organization_id: organization.id))
-        Shared::Result.success(Registered.new(user: user, organization: organization))
+        Success(Registered.new(user: user, organization: organization))
+      rescue ActiveRecord::RecordInvalid => e
+        # Validate pre-checks email and slug availability, but two concurrent
+        # registrations of the same email/organization name can still race
+        # past it. Translate the model-level failure into the same Result
+        # shape everything else returns so callers render 422, never a 500.
+        Failure(e.record.errors.full_messages.join(", "))
       end
     end
   end
 end
+```
+
+Callers never see `Verify`/`Validate` at all — the public interface stays
+`Command.new.call(request)`, exactly like a command with no `BaseCommand`:
+
+```ruby
+Authentication::RegisterUser::Command.new.call(request)
+# runs Verify.call -> Validate.call -> perform, short-circuiting on the
+# first Failure; returns whatever perform returned on success.
 ```
 
 ---
@@ -192,23 +309,25 @@ end
 module Traceability
   module LinkArtifacts
     class Verify
+      extend Dry::Monads[:result]
+
       def self.call(request)
         # 1. Check IDs are provided
-        return Shared::Result.failure("Source artifact ID is required") if request.source_id.blank?
-        return Shared::Result.failure("Target artifact ID is required") if request.target_id.blank?
+        return Failure("Source artifact ID is required") if request.source_id.blank?
+        return Failure("Target artifact ID is required") if request.target_id.blank?
 
         # 2. Check they're not the same
         if request.source_id == request.target_id
-          return Shared::Result.failure("Cannot link artifact to itself")
+          return Failure("Cannot link artifact to itself")
         end
 
         # 3. Check relationship type is valid
         valid_types = %w[implements validates depends_on related_to]
         unless valid_types.include?(request.relationship_type)
-          return Shared::Result.failure("Invalid relationship type")
+          return Failure("Invalid relationship type")
         end
 
-        Shared::Result.success(request)
+        Success(request)
       end
     end
   end
@@ -216,10 +335,21 @@ end
 ```
 
 **Validate** (semantic validation with prefetching):
+
+dry-monads' `Success`/`Failure` each carry exactly one payload — there's no `data:`
+side-channel for passing extra prefetched records forward. When a later phase needs
+records this phase already looked up (here: the `source`/`target` artifacts, so
+`Command` doesn't re-fetch them), bundle everything the next phase needs into a small
+`Struct` and return *that* as the single `Success` value:
+
 ```ruby
 module Traceability
   module LinkArtifacts
+    LinkContext = Struct.new(:request, :source, :target, keyword_init: true)
+
     class Validate
+      include Dry::Monads[:result]
+
       def initialize(artifact_repository:, relationship_repository:)
         @artifact_repository = artifact_repository
         @relationship_repository = relationship_repository
@@ -228,23 +358,23 @@ module Traceability
       def call(request)
         # 1. Check both artifacts exist
         source = @artifact_repository.find(request.source_id)
-        return Shared::Result.failure("Source artifact not found") unless source
+        return Failure("Source artifact not found") unless source
 
         target = @artifact_repository.find(request.target_id)
-        return Shared::Result.failure("Target artifact not found") unless target
+        return Failure("Target artifact not found") unless target
 
         # 2. Check they're in the same project
         if source.project_id != target.project_id
-          return Shared::Result.failure("Artifacts must be in the same project")
+          return Failure("Artifacts must be in the same project")
         end
 
         # 3. Check relationship doesn't already exist
         if @relationship_repository.exists?(source.id, target.id, request.relationship_type)
-          return Shared::Result.failure("This relationship already exists")
+          return Failure("This relationship already exists")
         end
 
-        # 4. Prefetch data for Command phase
-        Shared::Result.success(request, source: source, target: target)
+        # 4. Bundle the request plus prefetched records for Command phase
+        Success(LinkContext.new(request: request, source: source, target: target))
       end
     end
   end
@@ -256,15 +386,19 @@ end
 module Traceability
   module LinkArtifacts
     class Command
+      include Dry::Monads[:result]
+
       def initialize(relationship_repository:, event_dispatcher:)
         @relationship_repository = relationship_repository
         @event_dispatcher = event_dispatcher
       end
 
-      def call(request, source:, target:)
+      def call(context)
+        request, source, target = context.request, context.source, context.target
+
         # Check for circular dependencies
         if creates_circular_dependency?(source, target)
-          return Shared::Result.failure("This would create a circular dependency")
+          return Failure("This would create a circular dependency")
         end
 
         # Create relationship
@@ -284,7 +418,7 @@ module Traceability
           )
         )
 
-        Shared::Result.success(relationship)
+        Success(relationship)
       end
 
       private
@@ -298,6 +432,14 @@ module Traceability
 end
 ```
 
+Wiring the two phases together is then a plain `.bind` chain — `Command` receives the
+`LinkContext` that `Validate` returned, no separate data channel needed:
+
+```ruby
+Validate.new(**deps).call(request)
+  .bind { |context| Command.new(**deps).call(context) }
+```
+
 ---
 
 ## Pattern 3: Operation that Composes Other Operations
@@ -308,15 +450,17 @@ end
 module Traceability
   module CreateAndLinkArtifact
     class Command
+      include Dry::Monads[:result]
+
       def initialize(create_service:, link_service:)
         @create_service = create_service
         @link_service = link_service
       end
 
       def call(create_request, link_request)
-        # Chain operations using Result monad's and_then
+        # Chain operations using dry-monads' Result#bind
         @create_service.call(create_request)
-          .and_then { |artifact| 
+          .bind { |artifact|
             link_artifact(artifact, link_request)
           }
       end
@@ -341,6 +485,29 @@ end
 ## Pattern 4: Service Entry Point
 
 **Use when**: You need to orchestrate multiple operations or provide a simple API.
+
+For a domain whose Commands subclass `AverisOS::BaseCommand` (see [Pattern
+1](#pattern-1-operation-with-simple-validation) above — currently
+`authentication`), the service doesn't manually wire `Verify`/`Validate`
+itself; `BaseCommand#call` already does that. The service is a thin
+per-use-case delegator over a pre-built `Request`:
+
+```ruby
+module Authentication
+  class AuthenticationService
+    def register_user(request)
+      RegisterUser::Command.new.call(request)
+    end
+
+    def sign_in(request)
+      SignIn::Command.new.call(request)
+    end
+  end
+end
+```
+
+For a domain that hasn't adopted `AverisOS::BaseCommand` (below,
+`traceability`), the service wires the phases together manually:
 
 ```ruby
 module Traceability
@@ -369,12 +536,14 @@ module Traceability
       result = validate.call(request)
       return result if result.failure?
 
-      # Command
+      # Command — receives whatever Validate's Success wrapped (the request
+      # itself, or a bundling Struct if a later phase needs prefetched data,
+      # per Pattern 2 above)
       command = CreateArtifact::Command.new(
         artifact_repository: @container['repositories.artifact'],
         event_dispatcher: @container['services.event_dispatcher']
       )
-      command.call(request, **result.data)
+      command.call(result.value!)
     end
   end
 end
@@ -420,30 +589,32 @@ module Traceability
     end
 
     class Verify
+      extend Dry::Monads[:result]
+
       def self.call(request)
         # Check project_id
-        return Shared::Result.failure("Project ID is required") if request.project_id.blank?
+        return Failure("Project ID is required") if request.project_id.blank?
 
         # Check artifacts
-        return Shared::Result.failure("At least one artifact is required") if request.artifacts.empty?
+        return Failure("At least one artifact is required") if request.artifacts.empty?
 
         # Verify each artifact
         request.artifacts.each_with_index do |artifact, index|
-          return Shared::Result.failure("Artifact #{index}: type is required") if artifact.type.blank?
-          return Shared::Result.failure("Artifact #{index}: title is required") if artifact.title.blank?
+          return Failure("Artifact #{index}: type is required") if artifact.type.blank?
+          return Failure("Artifact #{index}: title is required") if artifact.title.blank?
         end
 
         # Verify link rules reference valid indices
         request.link_rules.each do |rule|
           if rule.source_index >= request.artifacts.length
-            return Shared::Result.failure("Link rule: source index out of range")
+            return Failure("Link rule: source index out of range")
           end
           if rule.target_index >= request.artifacts.length
-            return Shared::Result.failure("Link rule: target index out of range")
+            return Failure("Link rule: target index out of range")
           end
         end
 
-        Shared::Result.success(request)
+        Success(request)
       end
     end
   end
@@ -466,7 +637,7 @@ describe Traceability::CreateArtifact::Verify do
     )
     result = described_class.call(request)
     expect(result).to be_failure
-    expect(result.error).to include("Title is required")
+    expect(result.failure).to include("Title is required")
   end
 end
 ```
@@ -487,7 +658,7 @@ describe Traceability::CreateArtifact::Validate do
     )
     result = validate.call(request)
     expect(result).to be_failure
-    expect(result.error).to include("Project not found")
+    expect(result.failure).to include("Project not found")
   end
 end
 ```
