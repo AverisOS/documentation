@@ -9,25 +9,29 @@ Get AverisOS running on your machine in 5 minutes.
 
 ## Prerequisites
 
-- **Ruby**: 3.2.0 or higher
-- **PostgreSQL**: 14+
+- **Ruby**: 3.3.x or higher
+- **Rails**: 8.0.x (API mode only)
+- **PostgreSQL**: 15+
 - **Redis**: 7+
-- **Node.js**: 18+ (for JavaScript dependencies)
+- **Node.js**: 22 LTS (for frontend)
 - **Git**: Any recent version
 
 ### macOS
 ```bash
 # Using Homebrew
-brew install ruby postgresql redis node
+brew install ruby@3.3 postgresql redis node
 brew services start postgresql
 brew services start redis
+
+# Set Ruby version
+rbenv global 3.3.0  # if using rbenv
 ```
 
 ### Linux (Ubuntu/Debian)
 ```bash
 # Install dependencies
 sudo apt-get update
-sudo apt-get install ruby ruby-dev postgresql postgresql-contrib redis-server nodejs
+sudo apt-get install ruby-3.3 postgresql postgresql-contrib redis-server nodejs
 
 # Start services
 sudo systemctl start postgresql
@@ -50,10 +54,10 @@ cd averis-os
 
 ### 2. Install Dependencies
 ```bash
-# Install Ruby gems
+# Install Ruby gems (Rails API backend)
 bundle install
 
-# Install JavaScript dependencies
+# Install JavaScript dependencies (React frontend)
 npm install
 ```
 
@@ -74,128 +78,120 @@ cp .env.example .env
 
 # Edit .env with your settings (optional for local dev)
 # Default values work for local development
+
+# Key variables for Rails API:
+# DATABASE_URL=postgres://localhost:5432/averis-os_development
+# REDIS_URL=redis://localhost:6379/0
+# RAILS_ENV=development
 ```
 
 ### 5. Start Development Server
+
+**Terminal 1: Rails API Backend**
 ```bash
-# In one terminal
+# Start Rails API server (JSON-only, no views/assets)
 bundle exec rails server
 
-# In another terminal (for background jobs)
-bundle exec sidekiq
+# Server runs on http://localhost:3000
+# All responses are JSON
+```
 
-# In a third terminal (optional, for frontend)
+**Terminal 2: Sidekiq Background Jobs**
+```bash
+# Process async jobs and events
+bundle exec sidekiq
+```
+
+**Terminal 3: React Frontend (Optional)**
+```bash
+# Start Vite dev server with hot reload
 npm run dev
+
+# Frontend runs on http://localhost:5173
 ```
 
 ### 6. Verify Setup
 ```bash
-# Open browser
-open http://localhost:3000
+# Test API endpoint (JSON response)
+curl -X GET http://localhost:3000/api/v1/health
 
-# You should see: AverisOS welcome page
+# Should return JSON:
+# {"status":"ok"}
+
+# Open browser for frontend
+open http://localhost:5173
 ```
 
 ---
 
-## Development Workflow
+## Rails API Mode
 
-### Running Tests
-```bash
-# Run all tests
-bundle exec rspec
+AverisOS backend runs in **Rails API mode** exclusively:
 
-# Run specific file
-bundle exec rspec spec/domains/traceability/create_artifact_spec.rb
+- **No HTML views** — only JSON responses
+- **No asset pipeline** — CSS/JS managed by React frontend
+- **Stateless** — each request is independent
+- **Token-based authentication** — Bearer tokens, not cookies
+- **CORS enabled** — frontend on different domain (localhost:5173 → localhost:3000)
 
-# Run with coverage
-COVERAGE=true bundle exec rspec
+All controller responses use JSON serializers, never template rendering:
 
-# Run only fast tests
-bundle exec rspec --tag ~slow
+```ruby
+# ✓ Correct (Rails API)
+render json: UserSerializer.new(user)
+
+# ✗ Wrong (not API mode)
+render :show  # would look for template
 ```
 
-### Code Quality
+---
+
+## Common Development Commands
+
+### Rails Backend
+
 ```bash
-# Check code style
-bundle exec rubocop
-
-# Fix style issues automatically
-bundle exec rubocop -a
-
-# Run all checks
-bundle exec bundle audit check --update
-```
-
-### Database Management
-```bash
-# Create new migration
-bundle exec rails g migration CreateArtifacts
+# Start console for testing
+bundle exec rails console
 
 # Run migrations
 bundle exec rails db:migrate
 
-# Rollback one migration
-bundle exec rails db:rollback
+# Generate new migration
+bundle exec rails generate migration AddStatusToArtifacts status:string
 
-# Reset database (development only!)
+# Run tests
+bundle exec rspec
+
+# View routes
+bundle exec rails routes | grep api
+```
+
+### React Frontend
+
+```bash
+# Start dev server with hot reload
+npm run dev
+
+# Run tests
+npm test
+
+# Build for production
+npm run build
+
+# Run E2E tests
+npm run e2e
+```
+
+### Database
+
+```bash
+# Reset database (development only)
 bundle exec rails db:drop db:create db:migrate db:seed
-```
 
-### Working with Domains
-
-Each domain is in `domains/[domain_name]/`. To understand a domain:
-
-```bash
-# Explore Traceability domain
-ls domains/traceability/
-
-# Run domain tests
-bundle exec rspec domains/traceability/spec/
-
-# View domain service
-cat domains/traceability/domain/traceability_service.rb
-```
-
----
-
-## Useful Commands
-
-### Rails Console
-```bash
-# Open Rails console
-bundle exec rails c
-
-# Create artifact
-artifact = Artifact.create(
-  project_id: 1,
-  type: 'requirement',
-  title: 'User can login',
-  description: 'Lorem ipsum',
-  owner_id: 1
-)
-
-# Query artifacts
-Artifact.all
-Artifact.where(type: 'requirement')
-```
-
-### Seed Data
-```bash
-# Load seed data
-bundle exec rails db:seed
-
-# Clean and reseed
-bundle exec rails db:drop db:create db:migrate db:seed
-```
-
-### Background Jobs
-```bash
-# Check Sidekiq dashboard
-open http://localhost:3000/sidekiq
-
-# Run jobs synchronously in tests
-Sidekiq::Testing.inline!
+# Check database status
+psql -c "\l"  # list databases
+psql averis-os_development -c "\d"  # list tables
 ```
 
 ---
@@ -203,160 +199,105 @@ Sidekiq::Testing.inline!
 ## Troubleshooting
 
 ### Port Already in Use
+
 ```bash
-# Find process on port 3000
+# Find what's using port 3000
 lsof -i :3000
 
-# Kill it
-kill -9 <PID>
+# Use different port
+bundle exec rails server -p 3001
+npm run dev -- --port 5174
 ```
 
 ### Database Connection Error
+
 ```bash
-# Check PostgreSQL is running
+# Verify PostgreSQL is running
 brew services list  # macOS
-systemctl status postgresql  # Linux
+sudo systemctl status postgresql  # Linux
 
-# Check database exists
-createdb -l | grep averis_os
+# Check DATABASE_URL
+echo $DATABASE_URL
 
-# Create if missing
-bundle exec rails db:create
+# Test connection
+psql $DATABASE_URL -c "SELECT 1"
 ```
 
 ### Redis Connection Error
-```bash
-# Check Redis is running
-redis-cli ping
-# Should return: PONG
 
-# Or start it
-redis-server
+```bash
+# Verify Redis is running
+redis-cli ping  # should return PONG
+
+# If not running
+brew services start redis  # macOS
+sudo systemctl start redis-server  # Linux
 ```
 
-### Gems Not Installing
-```bash
-# Update bundler
-gem update bundler
+### API Returns HTML Instead of JSON
 
-# Clean and reinstall
-bundle clean --force
-bundle install
-```
+This means a request is hitting a view controller instead of an API controller.
 
-### Tests Failing
-```bash
-# Reset test database
-bundle exec rails db:test:prepare
-
-# Run with verbose output
-bundle exec rspec -f d
-```
-
----
-
-## Development Tools
-
-### Recommended Editor Extensions
-
-**VS Code**:
-- Ruby (by Shopify)
-- Rails (by bito)
-- RSpec (by sianglim)
-- Prettier (code formatter)
-- GitHub Copilot
-
-**RubyMine**:
-- Built-in Rails support
-- Excellent debugging
-- Code inspection
-
-### Debugging
-
-#### Debug with pry
+**Check controller inheritance**:
 ```ruby
-# Add to code
-require 'pry'; binding.pry
+# ✓ Correct
+class Api::V1::UsersController < Api::BaseController
+end
 
-# Run code, breakpoint will pause execution
-# In pry console: step, next, continue
+# ✗ Wrong
+class Api::V1::UsersController < ApplicationController
+end
 ```
 
-#### Debug with debugger (Ruby 2.7+)
+**Verify response type**:
 ```ruby
-# Add to code
-debugger
+# ✓ Correct
+render json: { data: ... }
 
-# Run tests
-bundle exec rspec spec/file_spec.rb
-
-# Debugger will pause at breakpoint
+# ✗ Wrong  
+render :show  # looks for template
 ```
 
-#### View logs
-```bash
-# Tail logs
-tail -f log/development.log
+### Node Modules Issues
 
-# Clear logs
-> log/development.log
+```bash
+# Clear and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Ruby Version Mismatch
+
+```bash
+# Check current version
+ruby -v
+
+# Should be 3.3.x
+# If using rbenv
+rbenv global 3.3.0
+rbenv rehash
 ```
 
 ---
 
-## Docker Setup (Alternative)
+## Docker Alternative
 
-If you prefer Docker:
-
-```bash
-# Build image
-docker-compose build
-
-# Start services
-docker-compose up
-
-# In another terminal, run migrations
-docker-compose exec web rails db:migrate db:seed
-
-# Access web at http://localhost:3000
-```
-
----
-
-## Production-Like Environment
-
-To test locally like production:
+If you prefer containerized development:
 
 ```bash
-# Build assets
-bundle exec rails assets:precompile
+docker-compose up -d
+# Starts PostgreSQL, Redis, Rails API, Sidekiq, React
 
-# Run in production mode
-RAILS_ENV=production bundle exec rails server
-
-# or with foreman
-gem install foreman
-foreman start -f Procfile.dev
+docker-compose logs -f  # view logs
+docker-compose down    # stop services
 ```
 
----
-
-## Useful Resources
-
-- **Rails Guides**: https://guides.rubyonrails.org
-- **RSpec Docs**: https://rspec.info
-- **Dry-rb**: https://dry-rb.org
-- **Ruby Docs**: https://ruby-doc.org
+See `docker-compose.yml` for configuration.
 
 ---
 
 ## Next Steps
 
-Once setup is complete:
-
-1. **Read [CONTRIBUTING.md](./contributing.mdx)** for contribution guidelines
-2. **Explore [domains](../domains/)** to understand architecture
-3. **Read [Design Principles](../architecture/design-principles.mdx)** to understand patterns
-4. **Check out [Patterns & Examples](../architecture/patterns.mdx)** for code examples
-
-Happy coding! 🚀
+- **[Testing Strategy](/development/testing-strategy)** — How to test at every level
+- **[Architecture Patterns](/architecture/patterns)** — Common code patterns
+- **[Contributing Guide](/development/contributing)** — How to contribute

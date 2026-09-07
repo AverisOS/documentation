@@ -1,0 +1,81 @@
+---
+title: "Monitoring & Uptime"
+description: "Per-domain health checks, Better Stack monitors, and how they're managed with Terraform"
+---
+
+# Monitoring & Uptime
+
+Render's built-in `healthCheckPath: /up` only proves the Rails process
+booted — it can't tell "the whole app is down" apart from "one domain's
+external dependency broke but everything else works." AverisOS adds a
+per-domain health check on top of that for finer-grained alerting.
+
+## Per-domain health checks
+
+`GET /up/:domain` exists for every domain except `shared`:
+`authentication`, `email`, `git_integration`, `traceability`,
+`work_management`, `testing`.
+
+- `app/health_checks/` holds one class per domain (e.g.
+  `AuthenticationHealthCheck`), each implementing `#call` and returning ok
+  or error.
+- `app/health_checks/health_check_registry.rb` maps a domain name string to
+  its check class; `app/controllers/health_checks_controller.rb` dispatches
+  on it and renders `200 {status: "ok"}` or `503 {status: "error", ...}`.
+- The route constrains `:domain` to the known list, so anything else 404s.
+- Checks are shallow for now: domains with real tables do a cheap DB
+  roundtrip (e.g. `User.connection.select_value("SELECT 1")`); domains with
+  no implementation yet (`email`, `git_integration`, `testing`) just prove
+  the process is up, same as Rails' own `/up`. Deep/synthetic checks (a real
+  GitHub API call, a real SMTP handshake) are intentionally out of scope
+  until a domain's shallow check proves insufficient.
+- The whole-app `get "up"` route (used by Render for liveness) is separate
+  and untouched.
+
+## External monitoring: Better Stack
+
+Uptime monitors live in [Better Stack](https://betterstack.com/uptime)
+(free tier): one monitor per `/up/<domain>` URL plus a UI liveness check,
+checked every 3 minutes, alerting by email (Slack requires connecting an
+integration in the dashboard — Terraform doesn't manage that on the free
+plan). Better Stack's free public status page doubles as the dashboard.
+
+Escalation policies are a paid feature (creating one 403s on the free
+plan), so each monitor alerts via its own `email = true` flag instead of a
+shared policy.
+
+## Managed with Terraform
+
+The monitors above are defined as code in `backend/terraform/` using the
+[`BetterStackHQ/better-uptime`](https://registry.terraform.io/providers/BetterStackHQ/better-uptime/latest)
+provider, rather than being clicked together by hand in the dashboard.
+
+```bash
+cd backend/terraform
+export BETTERUPTIME_API_TOKEN=xxxxxxxxxxxxxxxxxxxx  # never commit this
+terraform init
+terraform plan
+terraform apply
+```
+
+State is local (`terraform.tfstate`, gitignored) — fine for a single
+maintainer; move to a remote backend (e.g. Terraform Cloud) if more than
+one person starts running this.
+
+**Keeping it in sync:** `locals.domains` in `terraform/monitors.tf` must
+match the domain list in `app/health_checks/health_check_registry.rb`. If a
+domain is added, removed, or renamed in the registry, update the Terraform
+list in the same piece of work.
+
+## Exploring the API manually: Postman
+
+`backend/postman/AverisOS.postman_collection.json` and
+`AverisOS.postman_environment.json` document every API endpoint, organized
+one folder per domain plus a top-level `Health` folder for `/up` and
+`/up/:domain`. Requests use `{{base_url}}` (currently
+`http://localhost:3000`; a production environment can be added once there's
+a real need to hit Render directly from Postman).
+
+This collection is maintained by hand, not generated — whenever an
+endpoint is added, changed, or removed, the collection is updated in the
+same piece of work, the same way a README is kept accurate.

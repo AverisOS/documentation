@@ -5,6 +5,8 @@ description: "Team-centric work assignment and ownership model"
 
 # Work Management Model
 
+**Phase scope**: The ownership/assignment model below (Projects → Teams → Individuals, backlogs, triage) is **Phase 1** — it's what makes artifacts accountable, which traceability depends on. Formal **Sprint** entities/ceremony and multi-methodology support (Kanban, Waterfall) are **Phase 2** — see [PRD: "Why the Phase Boundary Is Drawn Here"](./prd.mdx#why-the-phase-boundary-is-drawn-here). In Phase 1, `artifacts.status` stops at `in_progress`/`completed` directly from `team_backlog` — there is no `sprint` state or `sprints` table until Phase 2.
+
 ## Overview
 
 Work flows from Project ownership through Team assignment to Individual execution. This model supports n:m team-to-domain relationships while maintaining clear accountability.
@@ -25,11 +27,11 @@ Work flows from Project ownership through Team assignment to Individual executio
 - **Backlogs**:
   - Project backlog: Items from assigned projects
   - Team backlog: Items claimed by the team
-  - Sprint backlog: Items committed for a sprint
+  - Sprint backlog: Items committed for a sprint (**Phase 2**)
 
 ### Artifacts (Work Items)
 - **Assignment chain**: Project → Team → Individual
-- **States**: unassigned → team_backlog → sprint → in_progress → completed
+- **States (Phase 1)**: unassigned → team_backlog → in_progress → completed (Phase 2 inserts a `sprint` state between `team_backlog` and `in_progress`)
 - **Ownership**: Team that will deliver it (final responsibility)
 
 ---
@@ -82,7 +84,7 @@ multiple teams flagged
 - `assignment_source`: "team_self" | "owner_flagged" | "management_assigned"
 - Metric: ratio of management_assigned vs team_accepted (org health signal)
 
-### 4. Sprint Assignment
+### 4. Sprint Assignment — Phase 2
 
 **Requirement:** All sprint items must have team ownership
 ```
@@ -91,6 +93,8 @@ artifact_state = team_backlog
   → sprint_item created with (team_id, artifact_id)
   → ready for individual assignment
 ```
+
+> **Phase 1 note**: There is no formal sprint ceremony yet. An artifact moves `team_backlog → in_progress` directly once a team starts work on it; the `sprints`/`sprint_items` tables and this step arrive in Phase 2 alongside Kanban/Waterfall support.
 
 ### 5. Individual Assignment
 
@@ -179,7 +183,8 @@ artifacts(
   project_id,
   title,
   description,
-  status  -- unassigned | team_backlog | sprint | in_progress | completed
+  status  -- Phase 1: unassigned | team_backlog | in_progress | completed
+          -- Phase 2 adds: sprint (between team_backlog and in_progress)
 )
 
 artifact_team_assignments(
@@ -213,7 +218,8 @@ triage_pool(
   resolved_at
 )
 
-ssprints(
+-- Phase 2 (not built in Phase 1):
+sprints(
   id,
   team_id,
   name,
