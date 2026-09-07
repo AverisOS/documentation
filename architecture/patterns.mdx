@@ -147,24 +147,32 @@ end
 ```
 
 **Command** (execute operation):
+
+See `backend/domains/authentication/domain/register_user/` for the full, current implementation — password hashing is delegated to Devise (`database_authenticatable`), not called directly.
+
 ```ruby
 module Authentication
   module RegisterUser
     class Command
-      def initialize(user_repository:, event_dispatcher:)
-        @user_repository = user_repository
-        @event_dispatcher = event_dispatcher
-      end
+      include AverisOS::Deps[
+        user_repository: "repositories.user",
+        organization_repository: "repositories.organization",
+        organization_membership_repository: "repositories.organization_membership",
+        event_dispatcher: "services.event_dispatcher"
+      ]
 
       def call(request)
-        user = @user_repository.create(
-          email: request.email,
-          password_digest: BCrypt::Password.create(request.password),
-          name: request.name
-        )
+        user = nil
+        organization = nil
 
-        @event_dispatcher.dispatch(UserRegistered.new(user_id: user.id))
-        Shared::Result.success(user)
+        ActiveRecord::Base.transaction do
+          organization = @organization_repository.create(name: request.organization_name, slug: request.organization_name.parameterize)
+          user = @user_repository.create(email: request.email, password: request.password, password_confirmation: request.password)
+          @organization_membership_repository.create(organization: organization, user: user, role: "owner")
+        end
+
+        @event_dispatcher.dispatch(UserRegistered.new(user_id: user.id, organization_id: organization.id))
+        Shared::Result.success(Registered.new(user: user, organization: organization))
       end
     end
   end
