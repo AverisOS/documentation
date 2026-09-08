@@ -26,6 +26,7 @@ CREATE INDEX idx_users_email ON users(email);
 ```sql
 CREATE TABLE projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
   owner_user_id UUID NOT NULL REFERENCES users(id),
   name VARCHAR(255) NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'draft', -- draft | ready_for_work
@@ -36,6 +37,7 @@ CREATE TABLE projects (
 
 CREATE TABLE teams (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
   name VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT NOW()
 );
@@ -43,17 +45,11 @@ CREATE TABLE teams (
 CREATE TABLE team_memberships (
   team_id UUID NOT NULL REFERENCES teams(id),
   user_id UUID NOT NULL REFERENCES users(id),
-  role VARCHAR(50) NOT NULL, -- admin | editor | viewer
   PRIMARY KEY (team_id, user_id)
 );
-
-CREATE TABLE project_teams (
-  project_id UUID NOT NULL REFERENCES projects(id),
-  team_id UUID NOT NULL REFERENCES teams(id),
-  access_level VARCHAR(50) NOT NULL, -- view | contribute | admin
-  PRIMARY KEY (project_id, team_id)
-);
 ```
+
+`team_memberships.role` and `project_teams.access_level` (a former join table between projects and teams) are gone — both are replaced by `permission_grants`, described in the Authorization section below.
 
 ## Artifacts (Traceability Core)
 
@@ -118,7 +114,7 @@ CREATE TABLE artifact_team_assignments (
 CREATE TABLE artifact_user_assignments (
   artifact_id UUID NOT NULL REFERENCES artifacts(id),
   user_id UUID NOT NULL REFERENCES users(id),
-  role VARCHAR(50) NOT NULL, -- assignee | reviewer | owner
+  role VARCHAR(50) NOT NULL, -- assignee | owner (reviewer moved to permission_grants — see Authorization below)
   assigned_at TIMESTAMP DEFAULT NOW(),
   PRIMARY KEY (artifact_id, user_id, role)
 );
@@ -138,6 +134,48 @@ CREATE TABLE triage_pool (
   assigned_by UUID REFERENCES users(id),
   resolved_team_id UUID REFERENCES teams(id),
   resolved_at TIMESTAMP
+);
+```
+
+## Authorization (relationship-tuple permission model)
+
+See the backend repo's
+[`2026-09-07-authorization-system-design.md`](https://github.com/AverisOS/backend/blob/main/docs/superpowers/specs/2026-09-07-authorization-system-design.md)
+for the full model. `team_memberships.role` and `project_teams.access_level`
+(above) are replaced by `permission_grants` — team-level and project-level
+access is now a tuple, not a column, which is also what lets a Team (not
+just a User) hold a grant directly.
+
+```sql
+CREATE TABLE permission_grants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  principal_type VARCHAR(50) NOT NULL, -- User | Team | Doorkeeper::Application
+  principal_id UUID NOT NULL,
+  target_type VARCHAR(50) NOT NULL,    -- Organization | Project | Team | Artifact
+  target_id UUID NOT NULL,
+  relation VARCHAR(50) NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE platform_staff_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id),
+  tier VARCHAR(50) NOT NULL, -- support_tier1 | support_tier2 | superadmin
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE organization_relations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  target_type VARCHAR(50) NOT NULL,
+  name VARCHAR(50) NOT NULL,
+  based_on VARCHAR(50),
+  permissions JSONB NOT NULL DEFAULT '[]',
+  forked_from_registry_version INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 ```
 

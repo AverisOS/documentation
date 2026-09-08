@@ -17,14 +17,15 @@ AverisOS is organized into domain-bounded contexts following Domain-Driven Desig
 │  AUTHENTICATION          TRACEABILITY        GIT INTEGRATION│
 │  ├── Register User       ├── Create Artifact ├── Sync      │
 │  ├── Login               ├── Link Artifacts  └── Detect     │
-│  ├── Reset Password      ├── Impact Analysis                │
-│  └── Manage Permissions  └── Find Related                   │
+│  └── Reset Password      ├── Impact Analysis                │
+│                          └── Find Related                   │
 │                                                             │
 │                    ↓ Events ↓                              │
 │                                                             │
-│  TESTING DOMAIN          EMAIL DOMAIN                       │
-│  ├── Record Test Run     ├── Send Notification             │
-│  └── Link to Code        └── Alert Watchers                │
+│  AUTHORIZATION           TESTING DOMAIN       EMAIL DOMAIN  │
+│  ├── Grant/Revoke        ├── Record Test Run  ├── Send Notif │
+│  ├── Check Permission    └── Link to Code     └── Alert     │
+│  └── Define Org Relation                                    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -71,13 +72,12 @@ See [Monorepo Structure](../architecture/monorepo-structure.mdx) for directory l
 
 ### 2. Authentication
 
-**Responsibility**: User registration, login, permissions.
+**Responsibility**: User registration, login, and identity.
 
 **Key Operations**:
 - Register user (sign up)
 - Login (authenticate)
 - Reset password (forgot password flow)
-- Manage permissions (who can do what in projects)
 
 **Events Emitted**:
 - `UserRegistered` (new user signed up)
@@ -86,8 +86,28 @@ See [Monorepo Structure](../architecture/monorepo-structure.mdx) for directory l
 
 **Database Models**:
 - `User` (user accounts)
-- `ProjectMembership` (who belongs to which projects)
-- `Permission` (who can do what)
+- `Organization` / `OrganizationMembership` (multi-tenancy and org-level roles)
+
+### 2a. Authorization
+
+**Responsibility**: Who can do what — organization-level roles, per-resource
+permission grants, and platform staff access. See
+[`2026-09-07-authorization-system-design.md`](https://github.com/AverisOS/backend/blob/main/docs/superpowers/specs/2026-09-07-authorization-system-design.md)
+in the backend repo for the full design.
+
+**Key Operations**:
+- Check permission (`AuthorizationService#can?`)
+- Grant / revoke a permission on a Project, Team, or Artifact
+- Define or fork an organization-specific relation
+
+**Events Emitted**:
+- `PermissionGranted` / `PermissionRevoked`
+- `OrganizationRelationDefined` / `OrganizationRelationDeleted`
+
+**Database Models**:
+- `PermissionGrant` (principal/relation/target tuples)
+- `PlatformStaffAssignment` (cross-org support tiers)
+- `OrganizationRelation` (per-org forks/custom relations)
 
 ### 3. Git Integration
 
