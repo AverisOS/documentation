@@ -260,6 +260,57 @@ end
 
 ---
 
+### `/app/structs`
+
+**Purpose**: Typed shapes for data crossing a domain boundary — a `Command`'s
+success value, or any other POJO/POCO-style payload handed from domain
+operations out to controllers (or between domains). Not business logic, so
+it doesn't belong in `domains/*/domain`; it's the app-level equivalent of
+`domains/shared/lib` for the outward-facing side of the dependency flow.
+
+**Contains**:
+- `Dry::Struct` value objects returned by domain `Command`s, with attributes
+  typed via `dry-types` (`Types = Dry.Types()`, defined once in
+  `app/structs/types.rb`) rather than left as untyped `Struct.new` fields
+
+**Rule**: struct attributes are plain data (ids as `Types::Strict::String` —
+primary keys are UUIDs, see `db/schema.rb` — plus strings/times/etc.), never
+`Types.Instance(SomeActiveRecordModel)`. A `Command` holds the AR object only
+long enough to pull the fields it needs; the AR instance itself never crosses
+back out to a controller. If a controller needs a live AR instance for a
+framework integration point that requires one (e.g. Devise's `sign_in(user)`
+needs a real `User`, not a struct — see `Authentication::SignIn::Command`),
+it re-fetches with `User.find(id)` rather than the struct smuggling the AR
+object through.
+
+**Pattern**: like every other `app/*` subdirectory, Rails autoloads
+`app/structs` as its own root, so a domain's existing top-level module name
+is reused rather than nested under a `Structs` namespace:
+
+```ruby
+# app/structs/authentication/registered.rb
+module Authentication
+  class Registered < Dry::Struct
+    attribute :user_id, Types::Strict::String
+    attribute :user_email, Types::Strict::String
+    attribute :organization_id, Types::Strict::String
+    attribute :organization_name, Types::Strict::String
+  end
+end
+```
+
+```ruby
+# domains/authentication/domain/register_user/command.rb
+Success(Authentication::Registered.new(
+  user_id: user.id,
+  user_email: user.email,
+  organization_id: organization.id,
+  organization_name: organization.name
+))
+```
+
+---
+
 ### `/app/models`
 
 **Purpose**: Persistence and associations only.
