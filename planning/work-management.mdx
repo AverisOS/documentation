@@ -18,12 +18,18 @@ Work flows from Project ownership through Team assignment to Individual executio
 ### Projects
 - **Owned by**: Individual user (project owner)
 - **Status**: draft, ready_for_work
-- **Teams**: Explicit set of teams who can contribute
-- **Backlog**: Visible to project owner + assigned teams
+- **Access**: Access groups holding `contribute`/`review`/`manage`/`admin` on
+  the project via `permission_grants` — see
+  [Domains Overview → Authorization](../domains/overview.mdx#2a-authorization).
+  There is no dedicated `project_teams` table; "which teams can contribute"
+  is answered by which access groups a team's members belong to.
+- **Backlog**: Visible to project owner + anyone with `view`-or-above access
 
 ### Teams
-- **Membership**: Explicit (users with roles)
-- **Domain Access**: Permissions per domain (read/write/admin)
+- **Membership**: Explicit (`team_memberships`, a plain join — no role column)
+- **Access**: Team's own relation vocabulary (`viewer`/`editor`/`admin`),
+  granted to access groups via `permission_grants` — the same mechanism as
+  Project access, not a separate "domain access" concept
 - **Backlogs**:
   - Project backlog: Items from assigned projects
   - Team backlog: Items claimed by the team
@@ -44,7 +50,8 @@ Work flows from Project ownership through Team assignment to Individual executio
 Individual (Project Owner)
   ├─ Creates project
   ├─ Marks as "ready_for_work"
-  └─ Adds teams who can contribute (project_teams)
+  └─ Grants an access group contribute/review access on the project
+     (permission_grants — see the authorization domain)
 ```
 
 ### 2. Item to Team Backlog
@@ -132,29 +139,37 @@ Individual assignment can be:
 
 ## Permissions & Access
 
-### Project-Level
-```
-owner: full control
-assigned_teams: view project_backlog, claim items, flag items
+Actual enforcement lives entirely in the authorization domain
+(`AuthorizationService#can?`), not in work-management-specific columns or
+tables. This section describes which of that domain's relations govern each
+work-management action; see
+[`2026-09-07-authorization-system-design.md`](https://github.com/AverisOS/backend/blob/main/docs/superpowers/specs/2026-09-07-authorization-system-design.md)
+for the full permission vocabulary and
+[`2026-09-09-access-groups-design.md`](https://github.com/AverisOS/backend/blob/main/docs/superpowers/specs/2026-09-09-access-groups-design.md)
+for how grants are held (always via an `AccessGroup`, including
+lazily-created personal groups for individual grants).
 
-Non-assigned teams: no access (unless domain permissions override)
-```
+### Project-Level
+- `admin`/`manage`: full control (settings, team access, deletion)
+- `contribute`: create/edit artifacts, claim project backlog items into a
+  team backlog
+- `review`: comment, approve/reject — independent of `contribute`, so a
+  reviewer need not also be a contributor
+- `view`: read-only visibility into the project backlog
+- No grant on the project at all: no access, unless the org role
+  (`owner`/`admin`) cascades it
 
 ### Team-Level
-```
-role + domain_access determines:
-  - who can view team backlog
-  - who can commit to sprint
-  - who can reassign flagged items
-```
+- The team's own `viewer`/`editor`/`admin` relation (held by an access
+  group, not a per-membership role column) determines who can view the team
+  backlog, commit items to a sprint, and reassign flagged items
 
 ### Artifact-Level
-```
-team_backlog ownership determines:
-  - who can see artifact details
-  - who can update status
-  - who can assign individual
-```
+- Falls back to the parent project's relation by default (a project
+  `contribute` grant already covers artifact edits); a direct grant on one
+  artifact is only needed for exceptions (e.g. one external reviewer on one
+  artifact) — see "Computed permissions" in the authorization design for the
+  creator-based delete/archive rules
 
 ---
 
@@ -172,11 +187,10 @@ projects(
   updated_at
 )
 
-project_teams(
-  project_id,
-  team_id,
-  access_level  -- view | contribute | admin
-)
+-- Team-to-project access is not a dedicated table -- it's expressed as
+-- permission_grants rows (access_group/relation/target), same as every
+-- other authorization decision. See the authorization domain's own schema
+-- in 2026-09-09-access-groups-design.md rather than duplicating it here.
 
 artifacts(
   id,
@@ -247,7 +261,15 @@ JOIN artifact_team_assignments ata ON a.id = ata.artifact_id
 WHERE ata.team_id = ?
 AND a.status IN ('team_backlog', 'sprint', 'in_progress')
 AND a.project_id IN (
-  SELECT project_id FROM project_teams WHERE team_id = ?
+  -- "Projects this team's members have contribute-or-above access to" --
+  -- resolved through access groups, not a direct team-to-project table.
+  SELECT pg.target_id
+  FROM permission_grants pg
+  JOIN access_group_memberships agm ON agm.access_group_id = pg.access_group_id
+  JOIN team_memberships tm ON tm.user_id = agm.user_id
+  WHERE tm.team_id = ?
+  AND pg.target_type = 'Project'
+  AND pg.relation IN ('contribute', 'manage', 'admin')
 )
 ORDER BY priority
 ```
