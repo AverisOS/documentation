@@ -1,0 +1,161 @@
+---
+title: "Using the Traceability Graph"
+description: "Create artifacts, link them, and query the graph for ancestors, descendants, and impact"
+---
+
+# Using the Traceability Graph
+
+The traceability graph is the core of AverisOS: every requirement, feature, piece of code, test, and release is an **artifact**, and every connection between them is a typed **relationship**. This guide walks through the actual API calls for creating artifacts, linking them, and asking the graph questions like "what depends on this?" and "what does this affect?"
+
+<Info>
+  Every request below requires an authenticated session. Sign in via `POST /users/sign_in` to get a JWT, then send it as the `Authorization` header on every call along with an `X-Organization-Id` header naming which organization you're acting in.
+</Info>
+
+## Create an artifact
+
+Artifacts belong to a project. Create one with a `type` (`requirement`, `feature`, `code`, `test`, `release`, or any other free-text type your team uses) and a `title`:
+
+```bash
+curl -X POST https://api.averisos.com/api/v1/projects/$PROJECT_ID/artifacts \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "requirement",
+    "title": "Users can reset a forgotten password"
+  }'
+```
+
+A successful response returns the created artifact:
+
+```json
+{
+  "artifact": {
+    "id": "5b2e...",
+    "type": "requirement",
+    "title": "Users can reset a forgotten password",
+    "status": "draft"
+  }
+}
+```
+
+<Note>
+  New artifacts start in `draft` status. Status transitions (`draft` → `active` → `archived`) are managed separately from linking — you don't need an artifact to be `active` before you link it.
+</Note>
+
+## Link two artifacts
+
+A relationship always has a **source**, a **target**, and a **type**. Read it as "source `<type>` target" — for example, "test-A `validates` requirement-B."
+
+```bash
+curl -X POST https://api.averisos.com/api/v1/artifact_relationships \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_artifact_id": "'"$TEST_ARTIFACT_ID"'",
+    "target_artifact_id": "'"$REQUIREMENT_ARTIFACT_ID"'",
+    "relationship_type": "validates"
+  }'
+```
+
+### Relationship types
+
+| Type | Meaning |
+|------|---------|
+| `implements` | Source implements target (for example, code implements a feature) |
+| `validates` | Source verifies target (for example, a test validates a requirement) |
+| `depends_on` | Source requires target to exist or function |
+| `related_to` | A general, non-directional association |
+| `blocks` | Source prevents target from proceeding |
+
+You can link any two artifacts regardless of type — a `test` can validate a `requirement` directly, without an intermediate `feature`, if that's how your team works.
+
+## Remove a link
+
+```bash
+curl -X DELETE https://api.averisos.com/api/v1/artifact_relationships/$RELATIONSHIP_ID \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID"
+```
+
+Removing a relationship only removes that one edge. If two artifacts are still connected through a different path, the graph reflects that automatically the next time you query it.
+
+## Query the graph
+
+Every artifact supports three read-only queries. Each returns a list of artifacts with the relationship path that connects them.
+
+<Tabs>
+  <Tab title="Ancestors">
+    Everything that points into this artifact, directly or transitively — the artifacts that implement, validate, depend on, or otherwise lead to it.
+
+    ```bash
+    curl https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID/ancestors \
+      -H "Authorization: $JWT" \
+      -H "X-Organization-Id: $ORG_ID"
+    ```
+  </Tab>
+  <Tab title="Descendants">
+    Everything this artifact points to, directly or transitively.
+
+    ```bash
+    curl https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID/descendants \
+      -H "Authorization: $JWT" \
+      -H "X-Organization-Id: $ORG_ID"
+    ```
+  </Tab>
+  <Tab title="Impact">
+    "If I change this artifact, what else is affected?" Impact is the same traversal as ancestors — everything with a path leading into this artifact is something that could break if it changes.
+
+    ```bash
+    curl https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID/impact \
+      -H "Authorization: $JWT" \
+      -H "X-Organization-Id: $ORG_ID"
+    ```
+  </Tab>
+</Tabs>
+
+A query response looks like this:
+
+```json
+{
+  "artifacts": [
+    { "id": "9a1f...", "type": "test", "title": "PasswordReset sends reset link", "depth": 1 },
+    { "id": "c04d...", "type": "feature", "title": "Password Reset Flow", "depth": 2 }
+  ]
+}
+```
+
+`depth` tells you how many relationship hops separate the result from the artifact you queried — `1` is a direct link, `2` is one hop further, and so on.
+
+<Tip>
+  Run an impact check before changing or archiving a requirement. An empty result means nothing else in the graph currently depends on it — it's safe to change in isolation.
+</Tip>
+
+## Putting it together
+
+<Steps>
+  <Step title="Create the requirement">
+    `POST /api/v1/projects/:project_id/artifacts` with `type: "requirement"`.
+  </Step>
+  <Step title="Create the feature, test, and code artifacts">
+    One `POST` per artifact, same endpoint, different `type`.
+  </Step>
+  <Step title="Link them">
+    `POST /api/v1/artifact_relationships` for each connection: feature `implements` requirement, code `implements` feature, test `validates` feature.
+  </Step>
+  <Step title="Check impact before changing anything">
+    `GET /api/v1/artifacts/:id/impact` on the requirement to see every feature, test, and piece of code that traces back to it.
+  </Step>
+</Steps>
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Quick start" icon="rocket" href="/getting-started/quick-start">
+    Get oriented to artifacts, relationships, and impact analysis in five minutes.
+  </Card>
+  <Card title="Domains overview" icon="sitemap" href="/domains/overview">
+    See how the Traceability domain fits alongside Authentication, Authorization, and the rest of the system.
+  </Card>
+</Columns>
