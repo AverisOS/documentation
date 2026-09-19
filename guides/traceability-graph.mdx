@@ -1,19 +1,36 @@
 ---
 title: "Using the Traceability Graph"
-description: "Create artifacts, link them, and query the graph for ancestors, descendants, and impact"
+description: "Create artifacts, link them, and query the graph for ancestors, descendants, and impact — from the API or the app"
 ---
 
 # Using the Traceability Graph
 
-The traceability graph is the core of AverisOS: every requirement, feature, piece of code, test, and release is an **artifact**, and every connection between them is a typed **relationship**. This guide walks through the actual API calls for creating artifacts, linking them, and asking the graph questions like "what depends on this?" and "what does this affect?"
+The traceability graph is the core of AverisOS: every requirement, feature, piece of code, test, and release is an **artifact**, and every connection between them is a typed **relationship**. This guide covers both surfaces — the actual API calls, and the equivalent screens in the app — for creating artifacts, linking them, and asking the graph questions like "what depends on this?", "what does this affect?", and "is this covered by tests?"
 
 <Info>
-  Every request below requires an authenticated session. Sign in via `POST /users/sign_in` to get a JWT, then send it as the `Authorization` header on every call along with an `X-Organization-Id` header naming which organization you're acting in.
+  Every request below requires an authenticated session. Sign in via `POST /users/sign_in` to get a JWT, then send it as the `Authorization` header on every call along with an `X-Organization-Id` header naming which organization you're acting in. The app handles both automatically once you're signed in.
 </Info>
 
 ## Create an artifact
 
-Artifacts belong to a project. Create one with a `type` (`requirement`, `feature`, `code`, `test`, `release`, or any other free-text type your team uses) and a `title`:
+Artifacts belong to a project and to an **artifact type** (`requirement`, `feature`, `code`, `test`, `release`, or any custom type your organization has defined). Types are organization-scoped records, not free text, so look one up first:
+
+```bash
+curl https://api.averisos.com/api/v1/artifact_types \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID"
+```
+
+```json
+{
+  "artifact_types": [
+    { "id": "3f1a...", "name": "requirement", "fields": [] },
+    { "id": "7c2e...", "name": "feature", "fields": [] }
+  ]
+}
+```
+
+Then create the artifact with that type's `id`:
 
 ```bash
 curl -X POST https://api.averisos.com/api/v1/projects/$PROJECT_ID/artifacts \
@@ -21,7 +38,7 @@ curl -X POST https://api.averisos.com/api/v1/projects/$PROJECT_ID/artifacts \
   -H "X-Organization-Id: $ORG_ID" \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "requirement",
+    "type_id": "3f1a...",
     "title": "Users can reset a forgotten password"
   }'
 ```
@@ -32,16 +49,43 @@ A successful response returns the created artifact:
 {
   "artifact": {
     "id": "5b2e...",
-    "type": "requirement",
+    "type": { "id": "3f1a...", "name": "requirement" },
     "title": "Users can reset a forgotten password",
-    "status": "draft"
+    "status": "draft",
+    "custom_fields": {}
   }
 }
 ```
 
+If your artifact type defines custom fields, pass them as a `custom_fields` object in the same request.
+
 <Note>
   New artifacts start in `draft` status. Status transitions (`draft` → `active` → `archived`) are managed separately from linking — you don't need an artifact to be `active` before you link it.
 </Note>
+
+<Warning>
+  The **New artifact** form in the app currently has a free-text "Type" field, but the API requires a real `type_id`. Until that's fixed, create artifact types first (`POST /api/v1/artifact_types`, admin-only) so they're selectable, and expect the app's Type field to need an exact type name match — it's a known rough edge, not documented behavior to build against.
+</Warning>
+
+### Update an artifact or mark it confidential
+
+```bash
+curl -X PATCH https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{ "title": "Users can reset a forgotten password via email" }'
+```
+
+```bash
+curl -X PATCH https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID/confidential \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{ "confidential": true }'
+```
+
+An artifact's access is always inherited from its project — marking it confidential narrows that further, restricting it to people with explicit `view_confidential` access on top of ordinary project access.
 
 ## Link two artifacts
 
@@ -132,17 +176,124 @@ A query response looks like this:
   Run an impact check before changing or archiving a requirement. An empty result means nothing else in the graph currently depends on it — it's safe to change in isolation.
 </Tip>
 
+## Coverage matrix
+
+To see how two artifact types cross-reference each other — every requirement against every feature, for example — use the matrix endpoint from either artifact's perspective:
+
+```bash
+curl "https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID/matrix?row_type=requirement&column_type=feature" \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID"
+```
+
+```json
+{
+  "rows": [{ "id": "5b2e...", "type": { "id": "3f1a...", "name": "requirement" }, "title": "Password reset" }],
+  "columns": [{ "id": "c04d...", "type": { "id": "7c2e...", "name": "feature" }, "title": "Password Reset Flow" }],
+  "cells": [[true]]
+}
+```
+
+`cells[i][j]` is `true` when `rows[i]` and `columns[j]` are connected by a relationship (directly, in either direction). There's no matrix view in the app yet — this endpoint is API-only today.
+
+## Test coverage
+
+Traceability and testing meet at the artifact: linking a `TestCase` to an artifact records that the test verifies it, and two endpoints report on that coverage.
+
+### Link or unlink a test case
+
+```bash
+curl -X POST https://api.averisos.com/api/v1/test_cases/$TEST_CASE_ID/artifact_links \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID" \
+  -H "Content-Type: application/json" \
+  -d '{ "artifact_id": "'"$ARTIFACT_ID"'", "relationship_type": "validates" }'
+```
+
+```bash
+curl -X DELETE https://api.averisos.com/api/v1/test_cases/$TEST_CASE_ID/artifact_links/$ARTIFACT_ID \
+  -H "Authorization: $JWT" \
+  -H "X-Organization-Id: $ORG_ID"
+```
+
+`relationship_type` accepts the same values as [artifact-to-artifact links](#relationship-types) and defaults to `validates`.
+
+### Check coverage
+
+<Tabs>
+  <Tab title="Per artifact">
+    Every test case linked to one artifact, with its latest run result:
+
+    ```bash
+    curl https://api.averisos.com/api/v1/artifacts/$ARTIFACT_ID/test_coverage \
+      -H "Authorization: $JWT" \
+      -H "X-Organization-Id: $ORG_ID"
+    ```
+
+    ```json
+    {
+      "coverage": [
+        { "test_case": { "id": "9a1f...", "name": "PasswordReset sends reset link" }, "latest_status": "passed", "latest_executed_at": "2026-09-18T14:02:00Z" }
+      ]
+    }
+    ```
+  </Tab>
+  <Tab title="Per project">
+    Every artifact of a given type in a project, and whether each has at least one linked test case:
+
+    ```bash
+    curl "https://api.averisos.com/api/v1/projects/$PROJECT_ID/test_coverage?artifact_type=requirement" \
+      -H "Authorization: $JWT" \
+      -H "X-Organization-Id: $ORG_ID"
+    ```
+
+    ```json
+    {
+      "coverage": [
+        { "artifact": { "id": "5b2e...", "title": "Password reset" }, "linked_test_case_count": 1, "covered": true }
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Using the UI
+
+The same actions above are available from **Projects → a project → Artifacts** (`/projects/:projectId/artifacts`):
+
+<Steps>
+  <Step title="Artifacts list">
+    Shows every artifact in the project with a create form (type + title) at the top. Each row links to that artifact's **Graph**, **Tests**, and its access/confidentiality page, and lets you send it to a team's triage pool.
+  </Step>
+  <Step title="Artifact Graph page">
+    Click **Graph** on an artifact to open `/projects/:projectId/artifacts/:artifactId/graph`. This page lets you create or remove relationships (pick a direction, a relationship type, and a target artifact from the project) and shows four live lists: direct relationships, ancestors, descendants, and impact — each with an inline tooltip explaining what it means.
+  </Step>
+  <Step title="Test coverage pages">
+    Click **Test coverage** from the artifacts list for the project-level view (`/projects/:projectId/test_coverage`) — enter an artifact type to see every artifact of that type and whether it's covered. Click **Tests** on an individual artifact for its own coverage page (`/projects/:projectId/artifacts/:artifactId/tests`), where you can link an existing test case to the artifact, see each linked test's latest run status, and unlink it.
+  </Step>
+  <Step title="Artifact access page">
+    Click an artifact's title to open its access page (`/projects/:projectId/artifacts/:artifactId/access`), where you can toggle **Mark confidential**. Ordinary access (who can read or edit the artifact) is set on the project's access page, not here — this only adds the extra confidentiality restriction on top.
+  </Step>
+</Steps>
+
+<Tip>
+  There's no UI for the coverage matrix or for browsing/creating artifact types yet — use the API for those until the app catches up.
+</Tip>
+
 ## Putting it together
 
 <Steps>
   <Step title="Create the requirement">
-    `POST /api/v1/projects/:project_id/artifacts` with `type: "requirement"`.
+    `POST /api/v1/projects/:project_id/artifacts` with the `requirement` type's `type_id`.
   </Step>
   <Step title="Create the feature, test, and code artifacts">
-    One `POST` per artifact, same endpoint, different `type`.
+    One `POST` per artifact, same endpoint, different `type_id`.
   </Step>
   <Step title="Link them">
     `POST /api/v1/artifact_relationships` for each connection: feature `implements` requirement, code `implements` feature, test `validates` feature.
+  </Step>
+  <Step title="Link the test case that automates the test artifact">
+    `POST /api/v1/test_cases/:test_case_id/artifact_links` so test coverage and the graph agree.
   </Step>
   <Step title="Check impact before changing anything">
     `GET /api/v1/artifacts/:id/impact` on the requirement to see every feature, test, and piece of code that traces back to it.
