@@ -63,9 +63,9 @@ If your artifact type defines custom fields, pass them as a `custom_fields` obje
   New artifacts start in `draft` status. Status transitions (`draft` → `active` → `archived`) are managed separately from linking — you don't need an artifact to be `active` before you link it.
 </Note>
 
-<Warning>
-  The **New artifact** form in the app currently has a free-text "Type" field, but the API requires a real `type_id`. Until that's fixed, create artifact types first (`POST /api/v1/artifact_types`, admin-only) so they're selectable, and expect the app's Type field to need an exact type name match — it's a known rough edge, not documented behavior to build against.
-</Warning>
+<Tip>
+  Create artifact types first (`POST /api/v1/artifact_types`, admin-only) so they show up as choices in the app's **New artifact** Type dropdown.
+</Tip>
 
 ### Update an artifact or mark it confidential
 
